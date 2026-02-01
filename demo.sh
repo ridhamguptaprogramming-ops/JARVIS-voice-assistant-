@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# JARVIS Voice Assistant - Demo Script
-# This script demonstrates the capabilities of JARVIS
+# JARVIS Voice Assistant - Demo Script with Search Features
+# This script demonstrates the capabilities of JARVIS including search
 
 echo "========================================="
 echo "JARVIS Voice Assistant - Demo Mode"
@@ -21,13 +21,17 @@ echo ""
 (
 echo "hello jarvis"
 sleep 1
-echo "what time is it"
-sleep 1
+echo "search for machine learning"
+sleep 2
+echo "find readme"
+sleep 2
+echo "tell me about artificial intelligence"
+sleep 2
+echo "what is blockchain"
+sleep 2
 echo "tell me a joke"
 sleep 1
 echo "help"
-sleep 1
-echo "system info"
 sleep 1
 echo "quit"
 ) | ./jarvis
