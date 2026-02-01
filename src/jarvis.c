@@ -68,12 +68,15 @@ void jarvis_run(void) {
     speak("JARVIS is now online. How may I assist you?");
     
     while (running) {
-        printf("\n[JARVIS] Waiting for voice input...\n");
-        printf("[JARVIS] (Or type 'help' for commands, 'quit' to exit)\n");
+        printf("\n");
+        printf("═══════════════════════════════════════\n");
+        printf("[JARVIS] Ready for your command\n");
+        printf("═══════════════════════════════════════\n");
+        printf("Try: hello, time, joke, help, search for [query], or quit\n");
         printf("> ");
         fflush(stdout);
         
-        // For demonstration, we'll read from stdin as well
+        // Read user input
         char input_buffer[512];
         if (fgets(input_buffer, sizeof(input_buffer), stdin) == NULL) {
             continue;
@@ -83,8 +86,11 @@ void jarvis_run(void) {
         input_buffer[strcspn(input_buffer, "\n")] = 0;
         
         if (strlen(input_buffer) == 0) {
+            printf("[JARVIS] I didn't hear anything. Please try again.\n");
             continue;
         }
+        
+        printf("\n[JARVIS] Processing: '%s'\n", input_buffer);
         
         // Process the command
         char* response = process_command(input_buffer);
@@ -94,7 +100,7 @@ void jarvis_run(void) {
             continue;
         }
         
-        printf("\n[JARVIS] %s\n", response);
+        printf("[JARVIS] %s\n", response);
         speak(response);
         
         // Check for exit commands

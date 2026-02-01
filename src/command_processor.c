@@ -39,15 +39,17 @@ char* process_command(const char* command) {
     // Help command
     else if (command_contains(lower_cmd, "help")) {
         strcpy(response, "I can help you with: checking the time, system information, "
-                        "telling jokes, and basic calculations. What would you like?");
+                        "telling jokes, and searching for information. What would you like?");
     }
     // System info command
     else if (command_contains(lower_cmd, "system") || 
-             command_contains(lower_cmd, "info")) {
+             command_contains(lower_cmd, "info") ||
+             command_contains(lower_cmd, "status")) {
         snprintf(response, 512, "System information requested. JARVIS version 1.0.0 is running smoothly on macOS.");
     }
     // Joke command
-    else if (command_contains(lower_cmd, "joke")) {
+    else if (command_contains(lower_cmd, "joke") ||
+             command_contains(lower_cmd, "tell")) {
         strcpy(response, "Why do programmers prefer dark mode? "
                         "Because light attracts bugs!");
     }
@@ -62,14 +64,9 @@ char* process_command(const char* command) {
              command_contains(lower_cmd, "quit")) {
         strcpy(response, "Shutting down. Goodbye sir.");
     }
-    // Calculate command
-    else if (command_contains(lower_cmd, "calculate") || 
-             command_contains(lower_cmd, "what is")) {
-        strcpy(response, "I can help with calculations. Please state your math problem.");
-    }
-    // Search commands
+    // Search commands - only if explicitly asked
     else if (command_contains(lower_cmd, "search") || 
-             command_contains(lower_cmd, "find") ||
+             command_contains(lower_cmd, "find ") ||
              command_contains(lower_cmd, "look for") ||
              command_contains(lower_cmd, "show me") ||
              command_contains(lower_cmd, "tell me about")) {
@@ -84,24 +81,10 @@ char* process_command(const char* command) {
             strcpy(response, "Search query processed. Please try a different search term.");
         }
     }
-    // Default response
+    // Default response - ask for clarification instead of searching
     else {
-        // Check if it might be a search query (user just states what they want)
-        if (strlen(command) > 3 && !command_contains(lower_cmd, "i ")) {
-            // Treat as potential search query
-            char* search_result = general_search(command);
-            if (search_result) {
-                strncpy(response, search_result, 511);
-                response[511] = '\0';
-                free(search_result);
-            } else {
-                snprintf(response, 512, "I understood: '%s'. I'm still learning about this command. "
-                                      "Would you like me to help with something else?", command);
-            }
-        } else {
-            snprintf(response, 512, "I understood: '%s'. I'm still learning about this command. "
-                                  "Would you like me to help with something else?", command);
-        }
+        snprintf(response, 512, "I'm sorry, I didn't understand '%s'. "
+                              "Try: time, joke, help, info, search for something, or quit.", command);
     }
     
     free(lower_cmd);
