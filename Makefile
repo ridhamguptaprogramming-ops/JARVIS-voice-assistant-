@@ -59,6 +59,14 @@ help:
 	@echo "  make debug        - Build with debug symbols"
 	@echo "  make clean        - Remove build artifacts"
 	@echo "  make rebuild      - Clean and rebuild"
+	@echo "  make setup        - Install Python dependencies for voice recognition"
 	@echo "  make help         - Show this help message"
 
-.PHONY: all run debug clean rebuild help
+# Setup Python dependencies for speech recognition
+setup:
+	@echo "Setting up speech recognition dependencies..."
+	@pip3 install SpeechRecognition pydub --quiet || pip install SpeechRecognition pydub --quiet
+	@echo "Setup complete! JARVIS now has microphone support."
+	@echo "You can now run: make run"
+
+.PHONY: all run debug clean rebuild help setup

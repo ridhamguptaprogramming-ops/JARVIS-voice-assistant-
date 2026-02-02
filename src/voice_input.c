@@ -5,20 +5,48 @@
 #include <unistd.h>
 
 /**
- * Captures voice input from the user and converts it to text
+ * Captures voice input from the microphone using Python speech recognition
  */
 char* capture_voice_input(void) {
     printf("\n[JARVIS] 🎤 Listening... (speak now)\n");
-    printf("[JARVIS] Press Ctrl+C to cancel\n");
+    printf("[JARVIS] Waiting for voice from microphone...\n");
     fflush(stdout);
     
-    // For voice input, we'll use a simple stdin approach
-    // since true voice recognition requires external APIs or frameworks
+    // Try to use Python speech recognizer first
+    FILE* pipe = popen("python3 src/speech_recognizer.py 2>/dev/null", "r");
+    
+    if (pipe) {
+        char* user_input = (char*)malloc(512);
+        if (!user_input) {
+            pclose(pipe);
+            return NULL;
+        }
+        
+        // Read the output from Python script
+        if (fgets(user_input, 512, pipe) != NULL) {
+            pclose(pipe);
+            
+            // Remove trailing newline
+            user_input[strcspn(user_input, "\n")] = 0;
+            
+            // Return if input is not empty
+            if (strlen(user_input) > 0) {
+                printf("[JARVIS] You said: \"%s\"\n", user_input);
+                return user_input;
+            }
+        }
+        
+        pclose(pipe);
+        free(user_input);
+    }
+    
+    // Fallback to keyboard input if Python script fails
+    printf("[JARVIS] Microphone not available. Using keyboard input instead.\n");
+    printf("[JARVIS] Type your command: ");
+    fflush(stdout);
+    
     char* user_input = (char*)malloc(512);
     if (!user_input) return NULL;
-    
-    printf("[JARVIS] Waiting for voice input...\n> ");
-    fflush(stdout);
     
     if (fgets(user_input, 512, stdin) != NULL) {
         // Remove trailing newline

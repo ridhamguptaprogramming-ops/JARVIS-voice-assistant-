@@ -12,19 +12,31 @@ JARVIS is a command-line voice assistant written in C programming language. It f
 
 ## Quick Start
 
-### Step 1: Navigate to Project Directory
+### Step 1: Install Speech Recognition Dependencies
+To enable real-time microphone input, install Python dependencies:
+```bash
+make setup
+```
+
+This installs:
+- `SpeechRecognition` - Speech-to-text library
+- `pydub` - Audio processing library
+
+**Troubleshooting**: If you don't have Python, JARVIS will automatically fall back to keyboard input.
+
+### Step 2: Navigate to Project Directory
 ```bash
 cd "/Users/ridhamgupta805gmail.com/Documents/Todo Assignment/JARVIS-voice-assistant-"
 ```
 
-### Step 2: Build the Project
+### Step 3: Build the Project
 ```bash
 make
 ```
 
 This will compile all source files and create the `jarvis` executable.
 
-### Step 3: Run JARVIS
+### Step 4: Run JARVIS
 ```bash
 ./jarvis
 ```
@@ -33,6 +45,8 @@ Or use the convenience command:
 ```bash
 make run
 ```
+
+**Now JARVIS listens to your microphone in real-time!** 🎤
 
 ## Command Examples
 
@@ -60,7 +74,13 @@ Compiles the project with optimizations enabled.
 ```bash
 make run
 ```
-Compiles and launches JARVIS in one command.
+Compiles and launches JARVIS with microphone support in one command.
+
+### Setup Microphone Support
+```bash
+make setup
+```
+Installs Python dependencies for real-time speech recognition.
 
 ### Debug Build
 ```bash
