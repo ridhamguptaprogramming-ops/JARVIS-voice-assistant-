@@ -26,4 +26,12 @@ char* to_lowercase(const char* str);
  */
 int command_contains(const char* command, const char* keyword);
 
+/**
+ * Opens applications based on voice commands
+ * @param command The voice command containing the app name
+ * @param response Buffer to store the response message
+ * @param response_size Size of the response buffer
+ */
+void execute_open_command(const char* command, char* response, int response_size);
+
 #endif // COMMAND_PROCESSOR_H

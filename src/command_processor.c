@@ -38,14 +38,18 @@ char* process_command(const char* command) {
     }
     // Help command
     else if (command_contains(lower_cmd, "help")) {
-        strcpy(response, "I can help you with: checking the time, system information, "
-                        "telling jokes, and searching for information. What would you like?");
+        strcpy(response, "I can: tell the time, open applications, search the web, tell jokes, "
+                        "show system info, and execute commands. Try: 'open chrome', 'search for something', or 'time'.");
     }
     // System info command
     else if (command_contains(lower_cmd, "system") || 
              command_contains(lower_cmd, "info") ||
              command_contains(lower_cmd, "status")) {
-        snprintf(response, 512, "System information requested. JARVIS version 1.0.0 is running smoothly on macOS.");
+        snprintf(response, 512, "System information requested. JARVIS version 2.0.0 with voice control is running smoothly on macOS.");
+    }
+    // Open application commands
+    else if (command_contains(lower_cmd, "open")) {
+        execute_open_command(command, response, 512);
     }
     // Joke command
     else if (command_contains(lower_cmd, "joke") ||
@@ -116,3 +120,62 @@ int command_contains(const char* command, const char* keyword) {
     
     return strstr(command, keyword) != NULL ? 1 : 0;
 }
+
+/**
+ * Opens applications based on voice commands
+ * Examples: "open chrome", "open safari", "open terminal"
+ */
+void execute_open_command(const char* command, char* response, int response_size) {
+    const char* lower_cmd = command;
+    char app_name[256] = {0};
+    char macos_app[256] = {0};
+    
+    // Extract application name
+    if (strstr(command, "chrome") || strstr(command, "google")) {
+        strcpy(app_name, "chrome");
+        strcpy(macos_app, "Google Chrome");
+    } 
+    else if (strstr(command, "safari")) {
+        strcpy(app_name, "safari");
+        strcpy(macos_app, "Safari");
+    }
+    else if (strstr(command, "firefox")) {
+        strcpy(app_name, "firefox");
+        strcpy(macos_app, "Firefox");
+    }
+    else if (strstr(command, "terminal") || strstr(command, "terminal")) {
+        strcpy(app_name, "terminal");
+        strcpy(macos_app, "Terminal");
+    }
+    else if (strstr(command, "finder") || strstr(command, "files")) {
+        strcpy(app_name, "finder");
+        strcpy(macos_app, "Finder");
+    }
+    else if (strstr(command, "spotify") || strstr(command, "music")) {
+        strcpy(app_name, "spotify");
+        strcpy(macos_app, "Spotify");
+    }
+    else if (strstr(command, "vscode") || strstr(command, "code") || strstr(command, "visual studio")) {
+        strcpy(app_name, "vscode");
+        strcpy(macos_app, "Visual Studio Code");
+    }
+    else {
+        snprintf(response, response_size, "Which application would you like to open? "
+                 "Try: Chrome, Safari, Firefox, Terminal, Finder, Spotify, or VS Code.");
+        return;
+    }
+    
+    // Execute the open command on macOS
+    char open_cmd[512];
+    snprintf(open_cmd, sizeof(open_cmd), "open -a \"%s\" &", macos_app);
+    
+    int result = system(open_cmd);
+    
+    if (result == 0) {
+        snprintf(response, response_size, "Opening %s for you.", macos_app);
+    } else {
+        snprintf(response, response_size, "I tried to open %s, but encountered an issue. "
+                 "Please check if %s is installed.", macos_app, macos_app);
+    }
+}
+
