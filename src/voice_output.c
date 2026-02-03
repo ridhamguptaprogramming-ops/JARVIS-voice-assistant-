@@ -37,6 +37,26 @@ int speak(const char* text) {
 }
 
 /**
+ * Send a desktop notification (macOS or Linux)
+ */
+int notify_desktop(const char* title, const char* message) {
+    if (!title) title = "JARVIS";
+    if (!message) message = "";
+
+    char cmd[1024];
+
+#ifdef __APPLE__
+    // Use AppleScript to display a notification
+    snprintf(cmd, sizeof(cmd), "osascript -e 'display notification \"%s\" with title \"%s\"'", message, title);
+    return system(cmd) == 0;
+#else
+    // Try notify-send (common on Linux)
+    snprintf(cmd, sizeof(cmd), "notify-send '%s' '%s' 2>/dev/null || echo ''", title, message);
+    return system(cmd) == 0;
+#endif
+}
+
+/**
  * Initialize voice output system
  */
 int voice_output_init(void) {

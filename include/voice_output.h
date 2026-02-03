@@ -9,6 +9,7 @@
  * @return 1 on success, 0 on failure
  */
 int speak(const char* text);
+int notify_desktop(const char* title, const char* message);
 
 /**
  * Initialize voice output system

@@ -55,6 +55,8 @@ int jarvis_init(void) {
         fprintf(stderr, "[JARVIS] Error: Failed to initialize voice output\n");
         return 0;
     }
+    // Notify system that JARVIS is online
+    notify_desktop("JARVIS", "JARVIS is now online") ;
     
     return 1;
 }
@@ -161,6 +163,8 @@ void jarvis_run(void) {
         
         printf("[JARVIS] %s\n", response);
         speak(response);
+        // Show desktop notification for the result
+        notify_desktop("JARVIS", response);
         
         // Check for exit commands
         char* lower_input = (char*)malloc(strlen(command_text) + 1);

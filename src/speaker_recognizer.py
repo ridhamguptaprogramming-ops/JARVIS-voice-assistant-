@@ -46,19 +46,25 @@ def compute_embedding(y, sr=SR):
     return np.mean(mfcc, axis=1)
 
 
-def enroll(name):
+def enroll(name, samples=3):
     os.makedirs(SPEAKERS_DIR, exist_ok=True)
-    print(f"Enrolling speaker: {name}", file=sys.stderr)
-    print("Please speak after the beep...", file=sys.stderr)
-    time.sleep(0.5)
-    print("Beep! Recording...", file=sys.stderr)
-    y = record_audio()
-    if y is None:
-        print("ERROR", file=sys.stderr)
-        sys.exit(1)
-    emb = compute_embedding(y)
+    print(f"Enrolling speaker: {name} ( {samples} sample(s) )", file=sys.stderr)
+    embeddings = []
+    for i in range(samples):
+        print(f"Please speak sample {i+1}/{samples} after the beep...", file=sys.stderr)
+        time.sleep(0.5)
+        print("Beep! Recording...", file=sys.stderr)
+        y = record_audio()
+        if y is None:
+            print("ERROR: recording failed", file=sys.stderr)
+            sys.exit(1)
+        emb = compute_embedding(y)
+        embeddings.append(emb)
+
+    # Average embeddings
+    mean_emb = np.mean(np.stack(embeddings, axis=0), axis=0)
     path = os.path.join(SPEAKERS_DIR, f"{name}.npy")
-    np.save(path, emb)
+    np.save(path, mean_emb)
     print(f"ENROLLED:{name}")
 
 
@@ -99,14 +105,24 @@ def verify():
     THRESHOLD = 0.45
     if best_name and best_score < THRESHOLD:
         print(f"{best_name}")
+        return best_name
     else:
         print("UNKNOWN")
+        return "UNKNOWN"
 
 
 if __name__ == '__main__':
-    if len(sys.argv) >= 2 and sys.argv[1] == 'enroll' and len(sys.argv) == 3:
-        enroll(sys.argv[2])
+    if len(sys.argv) >= 2 and sys.argv[1] == 'enroll' and len(sys.argv) >= 3:
+        name = sys.argv[2]
+        samples = 3
+        if len(sys.argv) == 4:
+            try:
+                samples = int(sys.argv[3])
+            except Exception:
+                samples = 3
+        enroll(name, samples=samples)
         sys.exit(0)
     else:
+        # Run verify and exit with printed name
         verify()
         sys.exit(0)

@@ -28,67 +28,66 @@ def create_voice_fingerprint(audio):
     return fingerprint
 
 def register_speaker(name):
-    """Register a new speaker's voice"""
-    recognizer = Recognizer()
-    
-    print(f"[JARVIS] Registering speaker: {name}", file=sys.stderr)
-    print("[JARVIS] Please say 'My name is [your name]'", file=sys.stderr)
-    
+    """Register a new speaker's voice (delegates to MFCC enroll)"""
     try:
-        with Microphone() as source:
-            recognizer.adjust_for_ambient_noise(source, duration=0.5)
-            audio = recognizer.listen(source, timeout=10)
-        
-        fingerprint = create_voice_fingerprint(audio)
-        
-        # Load or create speakers database
-        speakers = {}
-        if os.path.exists(SPEAKERS_DB):
-            with open(SPEAKERS_DB, 'r') as f:
-                speakers = json.load(f)
-        
-        # Store speaker
-        os.makedirs('config', exist_ok=True)
-        speakers[name] = {
-            'fingerprint': fingerprint,
-            'registered_at': datetime.now().isoformat()
-        }
-        
-        with open(SPEAKERS_DB, 'w') as f:
-            json.dump(speakers, f)
-        
+        import src.speaker_recognizer as sr
+    except Exception:
+        try:
+            import speaker_recognizer as sr
+        except Exception as e:
+            print(f"[JARVIS] Enrollment unavailable: {e}", file=sys.stderr)
+            return False
+
+    print(f"[JARVIS] Registering speaker: {name}", file=sys.stderr)
+    # Default to 3 samples for enrollment
+    try:
+        sr.enroll(name, samples=3)
         print(f"[JARVIS] Speaker '{name}' registered successfully!", file=sys.stderr)
         return True
-        
     except Exception as e:
         print(f"[JARVIS] Registration failed: {e}", file=sys.stderr)
         return False
 
 def recognize_speaker():
-    """Identify who is speaking"""
+    """Identify who is speaking using the MFCC speaker recognizer if available"""
+    # Prefer the speaker_recognizer MFCC-based verifier
+    try:
+        import src.speaker_recognizer as sr
+    except Exception:
+        try:
+            import speaker_recognizer as sr
+        except Exception:
+            sr = None
+
+    if sr is not None:
+        try:
+            name = sr.verify()
+            if name:
+                return name
+        except Exception:
+            pass
+
+    # Fallback to simple fingerprint method
     recognizer = Recognizer()
-    
     if not os.path.exists(SPEAKERS_DB):
         return "Unknown"
-    
     try:
         with Microphone() as source:
             recognizer.adjust_for_ambient_noise(source, duration=0.3)
             audio = recognizer.listen(source, timeout=5)
-        
+
         fingerprint = create_voice_fingerprint(audio)
-        
+
         # Load speakers database
         with open(SPEAKERS_DB, 'r') as f:
             speakers = json.load(f)
-        
+
         # Simple matching - in production use ML/voice recognition
         for name, data in speakers.items():
             if data['fingerprint'] == fingerprint:
                 return name
-        
+
         return "Unknown"
-        
     except:
         return "Unknown"
 
@@ -126,12 +125,31 @@ def recognize_speech_and_speaker():
 
 if __name__ == "__main__":
     # Check for speaker registration mode
-    if len(sys.argv) > 1 and sys.argv[1] == "register":
+    if len(sys.argv) > 1 and sys.argv[1] in ("register", "enroll"):
         if len(sys.argv) > 2:
             speaker_name = sys.argv[2]
-            register_speaker(speaker_name)
+            # Optional samples argument
+            samples = 3
+            if len(sys.argv) > 3:
+                try:
+                    samples = int(sys.argv[3])
+                except Exception:
+                    samples = 3
+            # Delegate to speaker_recognizer if available
+            try:
+                import src.speaker_recognizer as sr
+            except Exception:
+                try:
+                    import speaker_recognizer as sr
+                except Exception:
+                    sr = None
+
+            if sr is not None:
+                sr.enroll(speaker_name, samples=samples)
+            else:
+                register_speaker(speaker_name)
         else:
-            print("Usage: python3 enhanced_recognizer.py register [name]")
+            print("Usage: python3 enhanced_recognizer.py register [name] [samples]")
     else:
         # Normal recognition mode
         result = recognize_speech_and_speaker()
