@@ -100,12 +100,46 @@ void jarvis_run(void) {
             strcpy(speaker, "UNKNOWN");
         }
 
-        // If speaker is UNKNOWN, do not execute voice commands automatically
+        // If speaker is UNKNOWN, ask for confirmation (try voice, then keyboard)
         if (strcmp(speaker, "UNKNOWN") == 0) {
-            printf("[JARVIS] Speaker not recognized — command will not be executed.\n");
-            printf("[JARVIS] To register your voice, run: python3 src/speaker_recognizer.py enroll \"Your Name\"\n");
-            free(combined);
-            continue;
+            printf("[JARVIS] Speaker not recognized. Asking for confirmation to execute the command...\n");
+
+            int confirmed = 0;
+            // Try a quick voice confirmation
+            FILE* cpipe = popen("python3 src/speech_recognizer.py 2>/dev/null", "r");
+            if (cpipe) {
+                char conf_buf[256] = "";
+                if (fgets(conf_buf, sizeof(conf_buf), cpipe) != NULL) {
+                    conf_buf[strcspn(conf_buf, "\n")] = 0;
+                    // check for yes-like responses
+                    for (char* p = conf_buf; *p; ++p) *p = (char)tolower((unsigned char)*p);
+                    if (strstr(conf_buf, "yes") || strstr(conf_buf, "confirm") || strstr(conf_buf, "ok") || strstr(conf_buf, "execute") || strstr(conf_buf, "run")) {
+                        confirmed = 1;
+                    }
+                }
+                pclose(cpipe);
+            }
+
+            // If not confirmed by voice, ask keyboard (fallback)
+            if (!confirmed) {
+                printf("[JARVIS] Confirm execution? (yes/no): ");
+                fflush(stdout);
+                char kb[32] = "";
+                if (fgets(kb, sizeof(kb), stdin) != NULL) {
+                    kb[strcspn(kb, "\n")] = 0;
+                    for (char* p = kb; *p; ++p) *p = (char)tolower((unsigned char)*p);
+                    if (strcmp(kb, "yes") == 0 || strcmp(kb, "y") == 0) confirmed = 1;
+                }
+            }
+
+            if (!confirmed) {
+                printf("[JARVIS] Command cancelled (no confirmation).\n");
+                printf("[JARVIS] To register your voice, run: python3 src/speaker_recognizer.py enroll \"Your Name\"\n");
+                free(combined);
+                continue;
+            }
+
+            printf("[JARVIS] Confirmation received from unverified source — proceeding with caution.\n");
         }
 
         if (strlen(command_text) == 0) {

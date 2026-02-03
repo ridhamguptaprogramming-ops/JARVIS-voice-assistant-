@@ -39,6 +39,20 @@ run: $(TARGET)
 	@echo "Starting JARVIS Voice Assistant..."
 	@./$(TARGET)
 
+# Run JARVIS in a new terminal window (GUI)
+run-gui: $(TARGET)
+	@echo "Launching JARVIS in a new terminal window..."
+	@bash scripts/run_jarvis_gui.sh
+
+# Enroll a new speaker profile. Usage: make enroll ENROLL_NAME="Your Name"
+enroll:
+	@if [ -z "$(ENROLL_NAME)" ]; then \
+		echo "Usage: make enroll ENROLL_NAME=\"Your Name\""; \
+		exit 1; \
+	fi
+	@echo "Enrolling speaker: $(ENROLL_NAME)"
+	@python3 src/speaker_recognizer.py enroll "$(ENROLL_NAME)"
+
 # Clean build artifacts
 clean:
 	@echo "Cleaning build artifacts..."
