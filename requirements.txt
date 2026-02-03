@@ -1,0 +1,7 @@
+SpeechRecognition
+pydub
+librosa
+sounddevice
+numpy
+scipy
+PyAudio
