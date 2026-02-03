@@ -73,30 +73,55 @@ void jarvis_run(void) {
         printf("[JARVIS] Ready for your command\n");
         printf("═══════════════════════════════════════\n");
         printf("Try: hello, time, joke, help, search for [query], or quit\n");
-        printf("> ");
-        fflush(stdout);
-        
-        // Read user input
-        char input_buffer[512];
-        if (fgets(input_buffer, sizeof(input_buffer), stdin) == NULL) {
+
+        // Use microphone/capture input (returns "SPEAKER|TEXT" or NULL)
+        char* combined = capture_voice_input();
+        if (!combined) {
+            printf("[JARVIS] I didn't get any input. Please try again.\n");
             continue;
         }
-        
-        // Remove newline
-        input_buffer[strcspn(input_buffer, "\n")] = 0;
-        
-        if (strlen(input_buffer) == 0) {
-            printf("[JARVIS] I didn't hear anything. Please try again.\n");
+
+        // Split speaker and text
+        char* sep = strchr(combined, '|');
+        char speaker[128] = "";
+        char command_text[512] = "";
+
+        if (sep) {
+            size_t s_len = sep - combined;
+            if (s_len >= sizeof(speaker)) s_len = sizeof(speaker)-1;
+            strncpy(speaker, combined, s_len);
+            speaker[s_len] = '\0';
+            strncpy(command_text, sep+1, sizeof(command_text)-1);
+            command_text[sizeof(command_text)-1] = '\0';
+        } else {
+            // fallback: treat entire combined as command
+            strncpy(command_text, combined, sizeof(command_text)-1);
+            command_text[sizeof(command_text)-1] = '\0';
+            strcpy(speaker, "UNKNOWN");
+        }
+
+        // If speaker is UNKNOWN, do not execute voice commands automatically
+        if (strcmp(speaker, "UNKNOWN") == 0) {
+            printf("[JARVIS] Speaker not recognized — command will not be executed.\n");
+            printf("[JARVIS] To register your voice, run: python3 src/speaker_recognizer.py enroll \"Your Name\"\n");
+            free(combined);
             continue;
         }
-        
-        printf("\n[JARVIS] Processing: '%s'\n", input_buffer);
-        
+
+        if (strlen(command_text) == 0) {
+            printf("[JARVIS] I didn't hear a command. Please try again.\n");
+            free(combined);
+            continue;
+        }
+
+        printf("\n[JARVIS] Processing: '%s' (from %s)\n", command_text, speaker);
+
         // Process the command
-        char* response = process_command(input_buffer);
-        
+        char* response = process_command(command_text);
+
         if (!response) {
             fprintf(stderr, "[JARVIS] Error processing command\n");
+            free(combined);
             continue;
         }
         
@@ -104,13 +129,13 @@ void jarvis_run(void) {
         speak(response);
         
         // Check for exit commands
-        char* lower_input = (char*)malloc(strlen(input_buffer) + 1);
+        char* lower_input = (char*)malloc(strlen(command_text) + 1);
         if (lower_input) {
-            for (int i = 0; input_buffer[i]; i++) {
-                lower_input[i] = tolower((unsigned char)input_buffer[i]);
+            for (int i = 0; command_text[i]; i++) {
+                lower_input[i] = tolower((unsigned char)command_text[i]);
             }
-            lower_input[strlen(input_buffer)] = '\0';
-            
+            lower_input[strlen(command_text)] = '\0';
+
             if (strstr(lower_input, "quit") || strstr(lower_input, "exit") || 
                 strstr(lower_input, "shutdown")) {
                 running = 0;
@@ -119,6 +144,7 @@ void jarvis_run(void) {
         }
         
         free(response);
+        free(combined);
     }
 }
 

@@ -9,15 +9,13 @@
  */
 char* capture_voice_input(void) {
     printf("\n[JARVIS] 🎤 Listening... (speak now)\n");
-    printf("[JARVIS] Waiting for voice from microphone...\n");
     fflush(stdout);
 
-    // First verify speaker (who's speaking)
+    // First verify speaker (who's speaking) - use MFCC recognizer
     FILE* spipe = popen("python3 src/speaker_recognizer.py 2>/dev/null", "r");
     char speaker[128] = "";
     if (spipe) {
         if (fgets(speaker, sizeof(speaker), spipe) != NULL) {
-            // strip newline
             speaker[strcspn(speaker, "\n")] = 0;
         }
         pclose(spipe);
@@ -25,61 +23,55 @@ char* capture_voice_input(void) {
 
     if (speaker[0] != '\0' && strcmp(speaker, "UNKNOWN") != 0) {
         printf("[JARVIS] Verified speaker: %s\n", speaker);
-    } else {
+    } else if (speaker[0] != '\0') {
         printf("[JARVIS] Speaker not verified (unknown)\n");
     }
 
     // Then run speech-to-text
     FILE* pipe = popen("python3 src/speech_recognizer.py 2>/dev/null", "r");
 
-    if (pipe) {
-        char* user_input = (char*)malloc(512);
-        if (!user_input) {
-            pclose(pipe);
-            return NULL;
-        }
-
-        // Read the output from Python script
-        if (fgets(user_input, 512, pipe) != NULL) {
-            pclose(pipe);
-
-            // Remove trailing newline
-            user_input[strcspn(user_input, "\n")] = 0;
-
-            // Return if input is not empty
-            if (strlen(user_input) > 0) {
-                if (speaker[0] != '\0' && strcmp(speaker, "UNKNOWN") != 0) {
-                    printf("[JARVIS] (%s) You said: \"%s\"\n", speaker, user_input);
-                } else {
-                    printf("[JARVIS] You said: \"%s\"\n", user_input);
-                }
-                return user_input;
-            }
-        }
-
-        pclose(pipe);
-        free(user_input);
+    // We'll return a combined string: "SPEAKER|TEXT" where SPEAKER may be UNKNOWN or KEYBOARD
+    char* combined = (char*)malloc(768);
+    if (!combined) {
+        if (pipe) pclose(pipe);
+        return NULL;
     }
-    
+    combined[0] = '\0';
+
+    if (pipe) {
+        char text_buf[512] = "";
+        if (fgets(text_buf, sizeof(text_buf), pipe) != NULL) {
+            text_buf[strcspn(text_buf, "\n")] = 0;
+        }
+        pclose(pipe);
+
+        if (strlen(text_buf) > 0) {
+            const char* sp = (speaker[0] != '\0') ? speaker : "UNKNOWN";
+            snprintf(combined, 768, "%s|%s", sp, text_buf);
+            if (strcmp(sp, "UNKNOWN") != 0) {
+                printf("[JARVIS] (%s) You said: \"%s\"\n", sp, text_buf);
+            } else {
+                printf("[JARVIS] You said: \"%s\"\n", text_buf);
+            }
+            return combined;
+        }
+    }
+
     // Fallback to keyboard input if Python script fails
-    printf("[JARVIS] Microphone not available. Using keyboard input instead.\n");
+    printf("[JARVIS] Microphone not available or empty input. Using keyboard input instead.\n");
     printf("[JARVIS] Type your command: ");
     fflush(stdout);
-    
-    char* user_input = (char*)malloc(512);
-    if (!user_input) return NULL;
-    
-    if (fgets(user_input, 512, stdin) != NULL) {
-        // Remove trailing newline
-        user_input[strcspn(user_input, "\n")] = 0;
-        
-        // Only return if input is not empty
-        if (strlen(user_input) > 0) {
-            return user_input;
+
+    char kb_buf[512] = "";
+    if (fgets(kb_buf, sizeof(kb_buf), stdin) != NULL) {
+        kb_buf[strcspn(kb_buf, "\n")] = 0;
+        if (strlen(kb_buf) > 0) {
+            snprintf(combined, 768, "KEYBOARD|%s", kb_buf);
+            return combined;
         }
     }
-    
-    free(user_input);
+
+    free(combined);
     return NULL;
 }
 
