@@ -53,6 +53,16 @@ enroll:
 	@echo "Enrolling speaker: $(ENROLL_NAME)"
 	@python3 src/speaker_recognizer.py enroll "$(ENROLL_NAME)"
 
+# Multi-sample enrollment: make enroll-multi ENROLL_NAME="Name" SAMPLES=5
+enroll-multi:
+	@if [ -z "$(ENROLL_NAME)" ]; then \
+		echo "Usage: make enroll-multi ENROLL_NAME=\"Your Name\" SAMPLES=3"; \
+		exit 1; \
+	fi
+	@SAMPLES_VAL=$(SAMPLES); if [ -z "$$SAMPLES_VAL" ]; then SAMPLES_VAL=3; fi; \
+	@echo "Enrolling speaker: $(ENROLL_NAME) (samples=$$SAMPLES_VAL)"; \
+	@python3 src/speaker_recognizer.py enroll "$(ENROLL_NAME)" $$SAMPLES_VAL
+
 # Clean build artifacts
 clean:
 	@echo "Cleaning build artifacts..."

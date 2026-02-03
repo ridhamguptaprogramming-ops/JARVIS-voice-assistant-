@@ -19,3 +19,15 @@ Notes:
 - Speak a short, clear phrase when prompted.
 - The enrollment uses MFCC-based averaging; accuracy is prototype-level.
 - For better results, enroll with multiple samples (future improvement).
+
+Multi-sample enrollment
+
+You can enroll with multiple samples (recommended) to improve verification accuracy:
+
+```bash
+# enroll with 5 samples
+make enroll-multi ENROLL_NAME="Your Name" SAMPLES=5
+
+# or use the script directly
+python3 src/speaker_recognizer.py enroll "Your Name" 5
+```
