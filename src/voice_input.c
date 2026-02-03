@@ -11,31 +11,52 @@ char* capture_voice_input(void) {
     printf("\n[JARVIS] 🎤 Listening... (speak now)\n");
     printf("[JARVIS] Waiting for voice from microphone...\n");
     fflush(stdout);
-    
-    // Try to use Python speech recognizer first
+
+    // First verify speaker (who's speaking)
+    FILE* spipe = popen("python3 src/speaker_recognizer.py 2>/dev/null", "r");
+    char speaker[128] = "";
+    if (spipe) {
+        if (fgets(speaker, sizeof(speaker), spipe) != NULL) {
+            // strip newline
+            speaker[strcspn(speaker, "\n")] = 0;
+        }
+        pclose(spipe);
+    }
+
+    if (speaker[0] != '\0' && strcmp(speaker, "UNKNOWN") != 0) {
+        printf("[JARVIS] Verified speaker: %s\n", speaker);
+    } else {
+        printf("[JARVIS] Speaker not verified (unknown)\n");
+    }
+
+    // Then run speech-to-text
     FILE* pipe = popen("python3 src/speech_recognizer.py 2>/dev/null", "r");
-    
+
     if (pipe) {
         char* user_input = (char*)malloc(512);
         if (!user_input) {
             pclose(pipe);
             return NULL;
         }
-        
+
         // Read the output from Python script
         if (fgets(user_input, 512, pipe) != NULL) {
             pclose(pipe);
-            
+
             // Remove trailing newline
             user_input[strcspn(user_input, "\n")] = 0;
-            
+
             // Return if input is not empty
             if (strlen(user_input) > 0) {
-                printf("[JARVIS] You said: \"%s\"\n", user_input);
+                if (speaker[0] != '\0' && strcmp(speaker, "UNKNOWN") != 0) {
+                    printf("[JARVIS] (%s) You said: \"%s\"\n", speaker, user_input);
+                } else {
+                    printf("[JARVIS] You said: \"%s\"\n", user_input);
+                }
                 return user_input;
             }
         }
-        
+
         pclose(pipe);
         free(user_input);
     }

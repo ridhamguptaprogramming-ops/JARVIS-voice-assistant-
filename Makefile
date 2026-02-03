@@ -65,7 +65,7 @@ help:
 # Setup Python dependencies for speech recognition
 setup:
 	@echo "Setting up speech recognition dependencies..."
-	@pip3 install SpeechRecognition pydub --quiet || pip install SpeechRecognition pydub --quiet
+	@pip3 install SpeechRecognition pydub librosa sounddevice numpy scipy --quiet || pip install SpeechRecognition pydub librosa sounddevice numpy scipy --quiet
 	@echo "Setup complete! JARVIS now has microphone support."
 	@echo "You can now run: make run"
 

@@ -68,12 +68,28 @@ char* process_command(const char* command) {
              command_contains(lower_cmd, "quit")) {
         strcpy(response, "Shutting down. Goodbye sir.");
     }
+    // YouTube search commands
+    else if (command_contains(lower_cmd, "youtube") || 
+             command_contains(lower_cmd, "video") ||
+             command_contains(lower_cmd, "watch")) {
+        execute_youtube_command(command, response, 512);
+    }
+    // Web page opening commands
+    else if (command_contains(lower_cmd, "open website") ||
+             command_contains(lower_cmd, "go to") ||
+             command_contains(lower_cmd, "visit")) {
+        execute_webpage_command(command, response, 512);
+    }
     // Search commands - only if explicitly asked
     else if (command_contains(lower_cmd, "search") || 
              command_contains(lower_cmd, "find ") ||
              command_contains(lower_cmd, "look for") ||
              command_contains(lower_cmd, "show me") ||
-             command_contains(lower_cmd, "tell me about")) {
+             command_contains(lower_cmd, "tell me about") ||
+             command_contains(lower_cmd, "what is") ||
+             command_contains(lower_cmd, "who is") ||
+             command_contains(lower_cmd, "how to") ||
+             command_contains(lower_cmd, "how do i")) {
         const char* query = extract_search_query(command);
         char* search_result = general_search(query);
         
@@ -176,6 +192,110 @@ void execute_open_command(const char* command, char* response, int response_size
     } else {
         snprintf(response, response_size, "I tried to open %s, but encountered an issue. "
                  "Please check if %s is installed.", macos_app, macos_app);
+    }
+}
+
+/**
+ * Opens YouTube and searches for a topic
+ */
+void execute_youtube_command(const char* command, char* response, int response_size) {
+    char search_term[512] = {0};
+    char url[1024] = {0};
+    
+    // Extract search term from command
+    const char* start = NULL;
+    if ((start = strstr(command, "search")) || (start = strstr(command, "find")) || 
+        (start = strstr(command, "watch")) || (start = strstr(command, "youtube"))) {
+        
+        // Skip the keyword
+        while (*start && !isspace(*start)) start++;
+        while (*start && isspace(*start)) start++;
+        
+        // Get remaining text
+        strncpy(search_term, start, sizeof(search_term) - 1);
+        search_term[sizeof(search_term) - 1] = '\0';
+        
+        if (strlen(search_term) > 0) {
+            // Remove trailing punctuation
+            int len = strlen(search_term) - 1;
+            while (len >= 0 && (search_term[len] == '.' || search_term[len] == '?' || search_term[len] == '!')) {
+                search_term[len] = '\0';
+                len--;
+            }
+            
+            // Build YouTube search URL (replace spaces with +)
+            snprintf(url, sizeof(url), "open 'https://www.youtube.com/results?search_query=");
+            for (int i = 0; search_term[i]; i++) {
+                if (search_term[i] == ' ') {
+                    strcat(url, "+");
+                } else {
+                    char ch[2] = {search_term[i], '\0'};
+                    strcat(url, ch);
+                }
+            }
+            strcat(url, "' &");
+            
+            system(url);
+            snprintf(response, response_size, "Searching YouTube for %s. Opening in your browser.", search_term);
+        } else {
+            system("open 'https://www.youtube.com' &");
+            snprintf(response, response_size, "Opening YouTube for you.");
+        }
+    } else {
+        system("open 'https://www.youtube.com' &");
+        snprintf(response, response_size, "Opening YouTube.");
+    }
+}
+
+/**
+ * Opens web pages and searches
+ */
+void execute_webpage_command(const char* command, char* response, int response_size) {
+    char search_term[512] = {0};
+    char url[1024] = {0};
+    
+    // Extract search term from command
+    const char* start = NULL;
+    if ((start = strstr(command, "visit")) || (start = strstr(command, "go to")) || 
+        (start = strstr(command, "open website"))) {
+        
+        // Skip the keyword
+        while (*start && !isspace(*start)) start++;
+        while (*start && isspace(*start)) start++;
+        
+        // Get remaining text
+        strncpy(search_term, start, sizeof(search_term) - 1);
+        search_term[sizeof(search_term) - 1] = '\0';
+        
+        if (strlen(search_term) > 0) {
+            // Remove trailing punctuation
+            int len = strlen(search_term) - 1;
+            while (len >= 0 && (search_term[len] == '.' || search_term[len] == '?' || search_term[len] == '!')) {
+                search_term[len] = '\0';
+                len--;
+            }
+            
+            // Build Google search URL
+            snprintf(url, sizeof(url), "open 'https://www.google.com/search?q=");
+            for (int i = 0; search_term[i]; i++) {
+                if (search_term[i] == ' ') {
+                    strcat(url, "+");
+                } else {
+                    char ch[2] = {search_term[i], '\0'};
+                    strcat(url, ch);
+                }
+            }
+            strcat(url, "' &");
+            
+            system(url);
+            snprintf(response, response_size, "Searching the web for %s. Opening in your browser.", search_term);
+        } else {
+            system("open 'https://www.google.com' &");
+            snprintf(response, response_size, "Opening Google for you.");
+        }
+    } else {
+        system("open 'https://www.google.com' &");
+        snprintf(response, response_size, "Opening web browser.");
     }
 }
 

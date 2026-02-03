@@ -34,4 +34,20 @@ int command_contains(const char* command, const char* keyword);
  */
 void execute_open_command(const char* command, char* response, int response_size);
 
+/**
+ * Opens YouTube and searches for videos
+ * @param command The voice command
+ * @param response Buffer to store the response message
+ * @param response_size Size of the response buffer
+ */
+void execute_youtube_command(const char* command, char* response, int response_size);
+
+/**
+ * Opens web pages and performs Google searches
+ * @param command The voice command
+ * @param response Buffer to store the response message
+ * @param response_size Size of the response buffer
+ */
+void execute_webpage_command(const char* command, char* response, int response_size);
+
 #endif // COMMAND_PROCESSOR_H
