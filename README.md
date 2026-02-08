@@ -8,6 +8,7 @@ A sophisticated voice-controlled assistant written in C, inspired by the AI from
 - **Voice Output**: Text-to-speech responses using system audio
 - **Command Processing**: Natural language command recognition and execution
 - **Modular Architecture**: Separate modules for input, output, and command processing
+- **Generative AI**: Integration with Gemini API for intelligent responses (See [AI_UPGRADE.md](AI_UPGRADE.md))
 
 ## System Requirements
 
@@ -169,6 +170,7 @@ else if (command_contains(lower_cmd, "your keyword")) {
 ## Version History
 
 - **v1.0.0** - Initial release with basic voice I/O and command processing
+- **v1.1.0** - Added Generative AI capabilities via Python bridge
 
 ## License
 
