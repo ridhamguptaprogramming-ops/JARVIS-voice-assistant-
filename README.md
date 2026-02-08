@@ -56,6 +56,7 @@ make clean
 - **Joke**: "Tell me a joke" - JARVIS will tell a joke
 - **Weather**: "What's the weather?" - JARVIS will explain weather access limitations
 - **Shutdown**: "Exit", "Quit", "Shutdown" - Exit the application
+- **AI Chat**: "Ask AI [question]", "Explain [topic]", "Write [text]" - Generates intelligent responses
 
 ## Project Structure
 
@@ -64,6 +65,7 @@ JARVIS-voice-assistant/
 ├── src/
 │   ├── main.c                 # Entry point
 │   ├── jarvis.c               # Main JARVIS logic
+│   ├── ai_chat.py             # AI Engine (Python)
 │   ├── voice_input.c          # Voice input handling
 │   ├── voice_output.c         # Voice output handling
 │   └── command_processor.c    # Command processing engine

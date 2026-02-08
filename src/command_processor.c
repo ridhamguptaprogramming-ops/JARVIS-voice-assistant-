@@ -101,6 +101,62 @@ char* process_command(const char* command) {
             strcpy(response, "Search query processed. Please try a different search term.");
         }
     }
+    // Reset AI Memory
+    else if (command_contains(lower_cmd, "reset ai") || 
+             command_contains(lower_cmd, "clear memory") ||
+             command_contains(lower_cmd, "forget everything")) {
+        if (remove("src/chat_history.json") == 0) {
+            strcpy(response, "AI memory has been wiped. I'm ready for a fresh start.");
+        } else {
+            strcpy(response, "My memory is already clean.");
+        }
+    }
+    // Change Personality
+    else if (command_contains(lower_cmd, "set mode") || 
+             command_contains(lower_cmd, "change personality") ||
+             command_contains(lower_cmd, "be sarcastic") ||
+             command_contains(lower_cmd, "be pirate") ||
+             command_contains(lower_cmd, "be polite")) {
+        
+        const char* mode = "default";
+        if (command_contains(lower_cmd, "sarcastic")) mode = "sarcastic";
+        else if (command_contains(lower_cmd, "pirate")) mode = "pirate";
+        else if (command_contains(lower_cmd, "formal") || command_contains(lower_cmd, "polite")) mode = "formal";
+        
+        FILE* f = fopen("src/persona_mode.txt", "w");
+        if (f) {
+            fprintf(f, "%s", mode);
+            fclose(f);
+            snprintf(response, 512, "I have switched to %s mode.", mode);
+        } else {
+            strcpy(response, "I couldn't switch my personality settings.");
+        }
+    }
+    // AI Integration
+    else if (command_contains(lower_cmd, "ask ai") || 
+             command_contains(lower_cmd, "explain") ||
+             command_contains(lower_cmd, "write") ||
+             command_contains(lower_cmd, "generate")) {
+        
+        printf("[JARVIS] Thinking...\n");
+        char sys_cmd[1024];
+        snprintf(sys_cmd, sizeof(sys_cmd), "python3 src/ai_chat.py \"%s\"", command);
+        
+        FILE* fp = popen(sys_cmd, "r");
+        if (fp == NULL) {
+            strcpy(response, "I cannot access my AI brain right now.");
+        } else {
+            if (fgets(response, 512, fp) == NULL) {
+                strcpy(response, "I couldn't generate a response.");
+            }
+            // Remove trailing newline
+            size_t len = strlen(response);
+            if (len > 0 && response[len-1] == '\n') {
+                response[len-1] = '\0';
+            }
+            pclose(fp);
+        }
+    }
     // Default response - ask for clarification instead of searching
     else {
         snprintf(response, 512, "I'm sorry, I didn't understand '%s'. "
@@ -298,4 +354,3 @@ void execute_webpage_command(const char* command, char* response, int response_s
         snprintf(response, response_size, "Opening web browser.");
     }
 }
-
