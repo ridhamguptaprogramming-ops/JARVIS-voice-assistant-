@@ -5,6 +5,12 @@
 #include <string.h>
 #include <ctype.h>
 #include <time.h>
+#include <unistd.h>
+
+// Forward declarations for new developer tools
+void execute_dev_command(const char* command, char* response, int response_size);
+void execute_dev_search(const char* command, char* response, int response_size);
+void execute_project_management(const char* command, char* response, int response_size);
 
 /**
  * Processes a voice command and executes appropriate action
@@ -50,6 +56,30 @@ char* process_command(const char* command) {
     // Open application commands
     else if (command_contains(lower_cmd, "open")) {
         execute_open_command(command, response, 512);
+    }
+    // Developer Workflow Automation
+    else if (command_contains(lower_cmd, "git") || 
+             command_contains(lower_cmd, "build") ||
+             command_contains(lower_cmd, "deploy")) {
+        execute_dev_command(lower_cmd, response, 512);
+    }
+    // Project Navigation & Management
+    else if (command_contains(lower_cmd, "change directory") ||
+             command_contains(lower_cmd, "go to folder") ||
+             command_contains(lower_cmd, "where am i") ||
+             command_contains(lower_cmd, "list files") ||
+             command_contains(lower_cmd, "create file")) {
+        execute_project_management(lower_cmd, response, 512);
+    }
+    // Developer Search (Stack Overflow/GitHub)
+    else if (command_contains(lower_cmd, "stack overflow") || 
+             command_contains(lower_cmd, "github")) {
+        execute_dev_search(command, response, 512);
+    }
+    // System Control
+    else if (command_contains(lower_cmd, "lock screen")) {
+        system("pmset displaysleepnow");
+        strcpy(response, "Locking screen.");
     }
     // Joke command
     else if (command_contains(lower_cmd, "joke") ||
@@ -231,6 +261,18 @@ void execute_open_command(const char* command, char* response, int response_size
         strcpy(app_name, "vscode");
         strcpy(macos_app, "Visual Studio Code");
     }
+    else if (strstr(command, "xcode")) {
+        strcpy(app_name, "xcode");
+        strcpy(macos_app, "Xcode");
+    }
+    else if (strstr(command, "docker")) {
+        strcpy(app_name, "docker");
+        strcpy(macos_app, "Docker");
+    }
+    else if (strstr(command, "postman")) {
+        strcpy(app_name, "postman");
+        strcpy(macos_app, "Postman");
+    }
     else {
         snprintf(response, response_size, "Which application would you like to open? "
                  "Try: Chrome, Safari, Firefox, Terminal, Finder, Spotify, or VS Code.");
@@ -352,5 +394,164 @@ void execute_webpage_command(const char* command, char* response, int response_s
     } else {
         system("open 'https://www.google.com' &");
         snprintf(response, response_size, "Opening web browser.");
+    }
+}
+
+/**
+ * Executes developer workflow commands (Git, Build)
+ */
+void execute_dev_command(const char* command, char* response, int response_size) {
+    char sys_cmd[256] = {0};
+
+    if (strstr(command, "status")) {
+        strcpy(sys_cmd, "git status 2>&1");
+    } 
+    else if (strstr(command, "pull")) {
+        strcpy(sys_cmd, "git pull 2>&1");
+    } 
+    else if (strstr(command, "push")) {
+        strcpy(sys_cmd, "git push 2>&1");
+    } 
+    else if (strstr(command, "build") || strstr(command, "make")) {
+        // Tries standard build commands
+        strcpy(sys_cmd, "(make || npm run build) 2>&1"); 
+    } 
+    else {
+        snprintf(response, response_size, "I can help with git status, pull, push, or running builds.");
+        return;
+    }
+
+    FILE* fp = popen(sys_cmd, "r");
+    if (fp == NULL) {
+        snprintf(response, response_size, "Failed to execute command.");
+        return;
+    }
+
+    response[0] = '\0';
+    char buffer[128];
+    while (fgets(buffer, sizeof(buffer), fp) != NULL) {
+        if (strlen(response) + strlen(buffer) < (size_t)response_size - 1) {
+            strcat(response, buffer);
+        } else {
+            break;
+        }
+    }
+    pclose(fp);
+
+    if (strlen(response) == 0) {
+        snprintf(response, response_size, "Command executed successfully.");
+    }
+}
+
+/**
+ * Performs developer-specific searches on Stack Overflow or GitHub
+ */
+void execute_dev_search(const char* command, char* response, int response_size) {
+    char search_term[512] = {0};
+    char url[1024] = {0};
+    const char* base_url = "https://stackoverflow.com/search?q=";
+    const char* platform = "Stack Overflow";
+
+    if (strstr(command, "github")) {
+        base_url = "https://github.com/search?q=";
+        platform = "GitHub";
+    }
+
+    // Extract search term
+    const char* start = NULL;
+    if ((start = strstr(command, "search")) || (start = strstr(command, "for")) || 
+        (start = strstr(command, "github")) || (start = strstr(command, "overflow"))) {
+        
+        // Skip the keyword
+        while (*start && !isspace(*start)) start++;
+        while (*start && isspace(*start)) start++;
+        
+        strncpy(search_term, start, sizeof(search_term) - 1);
+        search_term[sizeof(search_term) - 1] = '\0';
+        
+        if (strlen(search_term) > 0) {
+            snprintf(url, sizeof(url), "open '%s", base_url);
+            for (int i = 0; search_term[i]; i++) {
+                if (search_term[i] == ' ') {
+                    strcat(url, "+");
+                } else {
+                    char ch[2] = {search_term[i], '\0'};
+                    strcat(url, ch);
+                }
+            }
+            strcat(url, "' &");
+            
+            system(url);
+            snprintf(response, response_size, "Searching %s for %s.", platform, search_term);
+        } else {
+            snprintf(response, response_size, "What should I search for on %s?", platform);
+        }
+    } else {
+        snprintf(response, response_size, "Opening developer search.");
+    }
+}
+
+/**
+ * Manages project directories and files
+ */
+void execute_project_management(const char* command, char* response, int response_size) {
+    if (strstr(command, "where am i") || strstr(command, "current directory")) {
+        char cwd[1024];
+        if (getcwd(cwd, sizeof(cwd)) != NULL) {
+            snprintf(response, response_size, "Current directory: %s", cwd);
+        } else {
+            snprintf(response, response_size, "Could not determine current directory.");
+        }
+    }
+    else if (strstr(command, "list files") || strstr(command, "ls")) {
+        FILE* fp = popen("ls -F", "r");
+        if (fp) {
+            char buffer[128];
+            response[0] = '\0';
+            strcat(response, "Files: ");
+            int count = 0;
+            while (fgets(buffer, sizeof(buffer), fp) != NULL && count < 6) {
+                buffer[strcspn(buffer, "\n")] = 0; // Remove newline
+                if (strlen(response) + strlen(buffer) + 2 < (size_t)response_size) {
+                    strcat(response, buffer);
+                    strcat(response, ", ");
+                }
+                count++;
+            }
+            pclose(fp);
+            if (count == 0) strcat(response, "No files found.");
+        } else {
+            snprintf(response, response_size, "Failed to list files.");
+        }
+    }
+    else if (strstr(command, "change directory") || strstr(command, "go to folder")) {
+        const char* target = NULL;
+        if (strstr(command, "go to folder")) {
+             target = strstr(command, "folder ");
+             if (target) target += 7;
+        } else {
+             target = strstr(command, "to ");
+             if (target) target += 3;
+        }
+
+        if (target) {
+            while (*target && isspace(*target)) target++;
+            if (chdir(target) == 0) {
+                snprintf(response, response_size, "Changed directory to %s.", target);
+            } else {
+                snprintf(response, response_size, "Could not find directory %s.", target);
+            }
+        }
+    }
+    else if (strstr(command, "create file")) {
+        const char* start = strstr(command, "file ");
+        if (start) {
+            start += 5;
+            while (*start && isspace(*start)) start++;
+            char cmd[512];
+            snprintf(cmd, sizeof(cmd), "touch \"%s\"", start);
+            system(cmd);
+            snprintf(response, response_size, "Created file %s.", start);
+        }
     }
 }
