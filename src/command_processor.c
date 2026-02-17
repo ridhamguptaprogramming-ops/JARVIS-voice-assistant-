@@ -7,6 +7,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/stat.h>
 
 // Forward declarations for new developer tools
 void execute_dev_command(const char* command, char* response, int response_size);
@@ -20,6 +21,14 @@ static void execute_code_navigation_command(const char* command, char* response,
 static int extract_identifier_after_keyword(const char* command, const char* keyword, char* out, size_t out_size);
 static int create_c_module_scaffold(const char* module_name, char* response, int response_size);
 static int update_makefile_for_module(const char* module_name, char* error_message, int error_message_size);
+static void execute_ai_project_setup_command(const char* command, char* response, int response_size);
+static int contains_word(const char* text, const char* word);
+static void detect_project_language(const char* command, char* language, size_t language_size);
+static int extract_project_name_from_command(const char* command, char* project_name, size_t project_name_size);
+static int write_file_content(const char* file_path, const char* content);
+static int create_project_files(const char* project_name, const char* language, char* entry_file, size_t entry_file_size,
+                                char* error_message, int error_message_size);
+static int open_project_in_vscode(const char* project_name, const char* entry_file);
 
 /**
  * Processes a voice command and executes appropriate action
@@ -56,7 +65,8 @@ char* process_command(const char* command) {
     // Help command
     else if (command_contains(lower_cmd, "help")) {
         strcpy(response, "I can handle daily C development tasks: build project, run tests, check warnings, "
-                        "find symbol <name>, create c module <name>, git status, and web search.");
+                        "find symbol <name>, create c module <name>, create project <name> in python, "
+                        "git status, and web search.");
     }
     // System info command
     else if (command_contains(lower_cmd, "system info") ||
@@ -64,6 +74,13 @@ char* process_command(const char* command) {
              command_contains(lower_cmd, "system information") ||
              strcmp(lower_cmd, "info") == 0) {
         snprintf(response, response_size, "System information requested. JARVIS version 2.0.0 with voice control is running smoothly on macOS.");
+    }
+    // AI-like project setup (create project and open in VS Code)
+    else if (command_contains(lower_cmd, "project") &&
+             (command_contains(lower_cmd, "create") ||
+              command_contains(lower_cmd, "new") ||
+              command_contains(lower_cmd, "start"))) {
+        execute_ai_project_setup_command(lower_cmd, response, response_size);
     }
     // YouTube search commands
     else if (command_contains(lower_cmd, "youtube") ||
@@ -235,7 +252,8 @@ char* process_command(const char* command) {
     // Default response - ask for clarification instead of searching
     else {
         snprintf(response, response_size, "I didn't understand '%s'. Try: build project, run tests, "
-                 "check warnings, find function <name>, daily status, search for <topic>, or quit.", command);
+                 "check warnings, find function <name>, create project <name> in python, daily status, "
+                 "search for <topic>, or quit.", command);
     }
 
     free(lower_cmd);
@@ -279,7 +297,9 @@ void execute_open_command(const char* command, char* response, int response_size
     }
 
     char* lower_cmd = to_lowercase(command);
-    char macos_app[256] = {0};
+    char app_label[256] = {0};
+    const char* launch_cmds[8] = {0};
+    int launch_count = 0;
 
     if (!lower_cmd) {
         snprintf(response, response_size, "I couldn't process the application name.");
@@ -287,35 +307,52 @@ void execute_open_command(const char* command, char* response, int response_size
     }
 
     // Extract application name
-    if (strstr(lower_cmd, "chrome") || strstr(lower_cmd, "google")) {
-        strcpy(macos_app, "Google Chrome");
+    if (contains_word(lower_cmd, "xcode")) {
+        strcpy(app_label, "Xcode");
+        launch_cmds[launch_count++] = "open -a \"Xcode\" >/dev/null 2>&1 &";
     }
-    else if (strstr(lower_cmd, "safari")) {
-        strcpy(macos_app, "Safari");
+    else if (contains_word(lower_cmd, "vscode") || strstr(lower_cmd, "vs code") ||
+             strstr(lower_cmd, "visual studio") || contains_word(lower_cmd, "code")) {
+        strcpy(app_label, "Visual Studio Code");
+        launch_cmds[launch_count++] = "code -n >/dev/null 2>&1 &";
+        launch_cmds[launch_count++] = "open -b com.microsoft.VSCode >/dev/null 2>&1 &";
+        launch_cmds[launch_count++] = "open -b com.microsoft.VSCodeInsiders >/dev/null 2>&1 &";
+        launch_cmds[launch_count++] = "open -a \"Visual Studio Code\" >/dev/null 2>&1 &";
+        launch_cmds[launch_count++] = "open -a \"Visual Studio Code - Insiders\" >/dev/null 2>&1 &";
     }
-    else if (strstr(lower_cmd, "firefox")) {
-        strcpy(macos_app, "Firefox");
+    else if (contains_word(lower_cmd, "chrome") || contains_word(lower_cmd, "google")) {
+        strcpy(app_label, "Google Chrome");
+        launch_cmds[launch_count++] = "open -a \"Google Chrome\" >/dev/null 2>&1 &";
+        launch_cmds[launch_count++] = "open -b com.google.Chrome >/dev/null 2>&1 &";
     }
-    else if (strstr(lower_cmd, "terminal")) {
-        strcpy(macos_app, "Terminal");
+    else if (contains_word(lower_cmd, "safari")) {
+        strcpy(app_label, "Safari");
+        launch_cmds[launch_count++] = "open -a \"Safari\" >/dev/null 2>&1 &";
     }
-    else if (strstr(lower_cmd, "finder") || strstr(lower_cmd, "files")) {
-        strcpy(macos_app, "Finder");
+    else if (contains_word(lower_cmd, "firefox")) {
+        strcpy(app_label, "Firefox");
+        launch_cmds[launch_count++] = "open -a \"Firefox\" >/dev/null 2>&1 &";
+        launch_cmds[launch_count++] = "open -b org.mozilla.firefox >/dev/null 2>&1 &";
     }
-    else if (strstr(lower_cmd, "spotify") || strstr(lower_cmd, "music")) {
-        strcpy(macos_app, "Spotify");
+    else if (contains_word(lower_cmd, "terminal")) {
+        strcpy(app_label, "Terminal");
+        launch_cmds[launch_count++] = "open -a \"Terminal\" >/dev/null 2>&1 &";
     }
-    else if (strstr(lower_cmd, "vscode") || strstr(lower_cmd, "code") || strstr(lower_cmd, "visual studio")) {
-        strcpy(macos_app, "Visual Studio Code");
+    else if (contains_word(lower_cmd, "finder") || contains_word(lower_cmd, "files")) {
+        strcpy(app_label, "Finder");
+        launch_cmds[launch_count++] = "open -a \"Finder\" >/dev/null 2>&1 &";
     }
-    else if (strstr(lower_cmd, "xcode")) {
-        strcpy(macos_app, "Xcode");
+    else if (contains_word(lower_cmd, "spotify") || contains_word(lower_cmd, "music")) {
+        strcpy(app_label, "Spotify");
+        launch_cmds[launch_count++] = "open -a \"Spotify\" >/dev/null 2>&1 &";
     }
-    else if (strstr(lower_cmd, "docker")) {
-        strcpy(macos_app, "Docker");
+    else if (contains_word(lower_cmd, "docker")) {
+        strcpy(app_label, "Docker");
+        launch_cmds[launch_count++] = "open -a \"Docker\" >/dev/null 2>&1 &";
     }
-    else if (strstr(lower_cmd, "postman")) {
-        strcpy(macos_app, "Postman");
+    else if (contains_word(lower_cmd, "postman")) {
+        strcpy(app_label, "Postman");
+        launch_cmds[launch_count++] = "open -a \"Postman\" >/dev/null 2>&1 &";
     }
     else {
         snprintf(response, response_size, "Which application would you like to open? "
@@ -323,18 +360,27 @@ void execute_open_command(const char* command, char* response, int response_size
         free(lower_cmd);
         return;
     }
-    
-    // Execute the open command on macOS
-    char open_cmd[512];
-    snprintf(open_cmd, sizeof(open_cmd), "open -a \"%s\" &", macos_app);
-    
-    int result = system(open_cmd);
-    
-    if (result == 0) {
-        snprintf(response, response_size, "Opening %s for you.", macos_app);
+
+    const char* no_gui = getenv("JARVIS_NO_GUI");
+    if (no_gui && (strcmp(no_gui, "1") == 0 || strcmp(no_gui, "true") == 0)) {
+        snprintf(response, response_size, "Opening %s for you. (GUI launch disabled in this environment.)", app_label);
+        free(lower_cmd);
+        return;
+    }
+
+    int launched = 0;
+    for (int i = 0; i < launch_count; i++) {
+        if (launch_cmds[i] && system(launch_cmds[i]) == 0) {
+            launched = 1;
+            break;
+        }
+    }
+
+    if (launched) {
+        snprintf(response, response_size, "Opening %s for you.", app_label);
     } else {
-        snprintf(response, response_size, "I tried to open %s, but encountered an issue. "
-                 "Please check if %s is installed.", macos_app, macos_app);
+        snprintf(response, response_size, "I couldn't open %s automatically. "
+                 "Please verify it is installed and that VS Code command line tools are enabled.", app_label);
     }
 
     free(lower_cmd);
@@ -493,6 +539,322 @@ static int run_command_capture(const char* shell_cmd, char* response, int respon
     }
 
     return status;
+}
+
+static int contains_word(const char* text, const char* word) {
+    if (!text || !word || strlen(word) == 0) {
+        return 0;
+    }
+
+    size_t word_len = strlen(word);
+    const char* cursor = text;
+    while ((cursor = strstr(cursor, word)) != NULL) {
+        char prev = (cursor == text) ? ' ' : cursor[-1];
+        char next = cursor[word_len];
+        int prev_ok = !(isalnum((unsigned char)prev) || prev == '_');
+        int next_ok = !(isalnum((unsigned char)next) || next == '_');
+        if (prev_ok && next_ok) {
+            return 1;
+        }
+        cursor += word_len;
+    }
+
+    return 0;
+}
+
+static int is_project_stop_word(const char* token) {
+    if (!token || strlen(token) == 0) {
+        return 0;
+    }
+
+    const char* stop_words[] = {
+        "in", "using", "with", "for", "on", "inside",
+        "vscode", "code", "language", "as", "called",
+        "python", "javascript", "typescript", "java",
+        "golang", "go", "rust", "html", "c", "cpp", "c++"
+    };
+
+    for (size_t i = 0; i < sizeof(stop_words) / sizeof(stop_words[0]); i++) {
+        if (strcmp(token, stop_words[i]) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static void detect_project_language(const char* command, char* language, size_t language_size) {
+    const char* detected = "c";
+
+    if (strstr(command, "c++") || contains_word(command, "cpp")) {
+        detected = "cpp";
+    } else if (contains_word(command, "python")) {
+        detected = "python";
+    } else if (contains_word(command, "typescript")) {
+        detected = "typescript";
+    } else if (contains_word(command, "javascript") || contains_word(command, "node")) {
+        detected = "javascript";
+    } else if (contains_word(command, "java")) {
+        detected = "java";
+    } else if (contains_word(command, "golang") || strstr(command, " in go") != NULL) {
+        detected = "go";
+    } else if (contains_word(command, "rust")) {
+        detected = "rust";
+    } else if (contains_word(command, "html")) {
+        detected = "html";
+    }
+
+    snprintf(language, language_size, "%s", detected);
+}
+
+static int extract_project_name_from_command(const char* command, char* project_name, size_t project_name_size) {
+    if (!command || !project_name || project_name_size == 0) {
+        return 0;
+    }
+
+    project_name[0] = '\0';
+    const char* project_pos = strstr(command, "project");
+    if (!project_pos) {
+        return 0;
+    }
+
+    project_pos += strlen("project");
+    while (*project_pos && isspace((unsigned char)*project_pos)) {
+        project_pos++;
+    }
+
+    if (strncmp(project_pos, "named ", 6) == 0) {
+        project_pos += 6;
+    }
+
+    size_t out_len = 0;
+    while (*project_pos) {
+        while (*project_pos && isspace((unsigned char)*project_pos)) {
+            project_pos++;
+        }
+        if (!*project_pos) {
+            break;
+        }
+
+        char token[64] = {0};
+        size_t token_len = 0;
+        while (project_pos[token_len] && !isspace((unsigned char)project_pos[token_len]) &&
+               token_len < sizeof(token) - 1) {
+            char ch = project_pos[token_len];
+            if (ch == '.' || ch == ',' || ch == '!' || ch == '?' || ch == ':') {
+                break;
+            }
+            token[token_len] = ch;
+            token_len++;
+        }
+        token[token_len] = '\0';
+
+        project_pos += token_len;
+        while (*project_pos && !isspace((unsigned char)*project_pos)) {
+            project_pos++;
+        }
+
+        if (token[0] == '\0' || is_project_stop_word(token)) {
+            break;
+        }
+
+        char normalized_token[64] = {0};
+        size_t norm_len = 0;
+        for (size_t i = 0; token[i] && norm_len < sizeof(normalized_token) - 1; i++) {
+            char ch = token[i];
+            if (isalnum((unsigned char)ch) || ch == '_' || ch == '-') {
+                if (ch == '-') {
+                    ch = '_';
+                }
+                normalized_token[norm_len++] = (char)tolower((unsigned char)ch);
+            }
+        }
+        normalized_token[norm_len] = '\0';
+
+        if (norm_len == 0) {
+            continue;
+        }
+
+        if (out_len > 0 && out_len < project_name_size - 1) {
+            project_name[out_len++] = '_';
+        }
+
+        for (size_t i = 0; normalized_token[i] && out_len < project_name_size - 1; i++) {
+            project_name[out_len++] = normalized_token[i];
+        }
+
+        if (out_len >= project_name_size - 1) {
+            break;
+        }
+    }
+
+    project_name[out_len] = '\0';
+    return out_len > 0;
+}
+
+static int write_file_content(const char* file_path, const char* content) {
+    FILE* file = fopen(file_path, "w");
+    if (!file) {
+        return 0;
+    }
+
+    fputs(content, file);
+    fclose(file);
+    return 1;
+}
+
+static int create_project_files(const char* project_name, const char* language, char* entry_file, size_t entry_file_size,
+                                char* error_message, int error_message_size) {
+    struct stat st;
+    if (stat(project_name, &st) == 0) {
+        if (!S_ISDIR(st.st_mode)) {
+            snprintf(error_message, error_message_size, "'%s' exists but is not a directory.", project_name);
+            return 0;
+        }
+    } else {
+        if (mkdir(project_name, 0755) != 0) {
+            snprintf(error_message, error_message_size, "Failed to create project folder '%s'.", project_name);
+            return 0;
+        }
+    }
+
+    const char* starter_code = "#include <stdio.h>\n\nint main(void) {\n    printf(\"Hello from JARVIS!\\n\");\n    return 0;\n}\n";
+    const char* entry_name = "main.c";
+
+    if (strcmp(language, "cpp") == 0) {
+        entry_name = "main.cpp";
+        starter_code = "#include <iostream>\n\nint main() {\n    std::cout << \"Hello from JARVIS!\" << std::endl;\n    return 0;\n}\n";
+    } else if (strcmp(language, "python") == 0) {
+        entry_name = "main.py";
+        starter_code = "def main() -> None:\n    print(\"Hello from JARVIS!\")\n\n\nif __name__ == \"__main__\":\n    main()\n";
+    } else if (strcmp(language, "javascript") == 0) {
+        entry_name = "index.js";
+        starter_code = "function main() {\n  console.log(\"Hello from JARVIS!\");\n}\n\nmain();\n";
+    } else if (strcmp(language, "typescript") == 0) {
+        entry_name = "index.ts";
+        starter_code = "function main(): void {\n  console.log(\"Hello from JARVIS!\");\n}\n\nmain();\n";
+    } else if (strcmp(language, "java") == 0) {
+        entry_name = "Main.java";
+        starter_code = "public class Main {\n    public static void main(String[] args) {\n        System.out.println(\"Hello from JARVIS!\");\n    }\n}\n";
+    } else if (strcmp(language, "go") == 0) {
+        entry_name = "main.go";
+        starter_code = "package main\n\nimport \"fmt\"\n\nfunc main() {\n    fmt.Println(\"Hello from JARVIS!\")\n}\n";
+    } else if (strcmp(language, "rust") == 0) {
+        entry_name = "main.rs";
+        starter_code = "fn main() {\n    println!(\"Hello from JARVIS!\");\n}\n";
+    } else if (strcmp(language, "html") == 0) {
+        entry_name = "index.html";
+        starter_code = "<!doctype html>\n<html>\n  <head>\n    <meta charset=\"utf-8\" />\n    <title>JARVIS Project</title>\n  </head>\n  <body>\n    <h1>Hello from JARVIS!</h1>\n  </body>\n</html>\n";
+    }
+
+    char entry_path[512];
+    snprintf(entry_path, sizeof(entry_path), "%s/%s", project_name, entry_name);
+    if (access(entry_path, F_OK) == 0) {
+        snprintf(error_message, error_message_size, "Entry file already exists: %s", entry_path);
+        return 0;
+    }
+
+    if (!write_file_content(entry_path, starter_code)) {
+        snprintf(error_message, error_message_size, "Failed to write starter file: %s", entry_path);
+        return 0;
+    }
+
+    char readme_path[512];
+    snprintf(readme_path, sizeof(readme_path), "%s/README.md", project_name);
+    if (access(readme_path, F_OK) != 0) {
+        char readme_content[1024];
+        snprintf(readme_content, sizeof(readme_content),
+                 "# %s\n\nCreated automatically by JARVIS.\n\nLanguage: %s\nEntry file: %s\n",
+                 project_name, language, entry_name);
+        if (!write_file_content(readme_path, readme_content)) {
+            snprintf(error_message, error_message_size, "Failed to write README.md.");
+            return 0;
+        }
+    }
+
+    if (strcmp(language, "c") == 0) {
+        char makefile_path[512];
+        snprintf(makefile_path, sizeof(makefile_path), "%s/Makefile", project_name);
+        if (access(makefile_path, F_OK) != 0) {
+            char c_makefile[1024];
+            snprintf(c_makefile, sizeof(c_makefile),
+                     "CC = gcc\n"
+                     "CFLAGS = -Wall -Wextra -std=c11 -O2\n"
+                     "TARGET = %s\n"
+                     "SRC = main.c\n\n"
+                     "all: $(TARGET)\n\n"
+                     "$(TARGET): $(SRC)\n"
+                     "\t$(CC) $(CFLAGS) -o $(TARGET) $(SRC)\n\n"
+                     "clean:\n"
+                     "\trm -f $(TARGET)\n",
+                     project_name);
+            if (!write_file_content(makefile_path, c_makefile)) {
+                snprintf(error_message, error_message_size, "Failed to write project Makefile.");
+                return 0;
+            }
+        }
+    }
+
+    snprintf(entry_file, entry_file_size, "%s", entry_name);
+    return 1;
+}
+
+static int open_project_in_vscode(const char* project_name, const char* entry_file) {
+    const char* no_gui = getenv("JARVIS_NO_GUI");
+    if (no_gui && (strcmp(no_gui, "1") == 0 || strcmp(no_gui, "true") == 0)) {
+        return 1;
+    }
+
+    if (system("command -v code >/dev/null 2>&1") == 0) {
+        char code_cmd[768];
+        snprintf(code_cmd, sizeof(code_cmd),
+                 "code -n \"%s\" -g \"%s/%s\" >/dev/null 2>&1 &",
+                 project_name, project_name, entry_file);
+        return system(code_cmd) == 0;
+    }
+
+#ifdef __APPLE__
+    char mac_cmd[512];
+    snprintf(mac_cmd, sizeof(mac_cmd),
+             "open -a \"Visual Studio Code\" \"%s\" >/dev/null 2>&1 &",
+             project_name);
+    return system(mac_cmd) == 0;
+#elif defined(__linux__)
+    char linux_cmd[512];
+    snprintf(linux_cmd, sizeof(linux_cmd), "xdg-open \"%s\" >/dev/null 2>&1 &", project_name);
+    return system(linux_cmd) == 0;
+#else
+    (void)entry_file;
+    return 0;
+#endif
+}
+
+static void execute_ai_project_setup_command(const char* command, char* response, int response_size) {
+    char project_name[128] = {0};
+    if (!extract_project_name_from_command(command, project_name, sizeof(project_name))) {
+        snprintf(project_name, sizeof(project_name), "new_project");
+    }
+
+    char language[32] = {0};
+    detect_project_language(command, language, sizeof(language));
+
+    char entry_file[128] = {0};
+    char error_message[256] = {0};
+    if (!create_project_files(project_name, language, entry_file, sizeof(entry_file),
+                              error_message, sizeof(error_message))) {
+        snprintf(response, response_size, "I couldn't create the project: %s", error_message);
+        return;
+    }
+
+    int opened = open_project_in_vscode(project_name, entry_file);
+    if (opened) {
+        snprintf(response, response_size,
+                 "Created %s project '%s' with %s and opened it in VS Code. Ready for coding.",
+                 language, project_name, entry_file);
+    } else {
+        snprintf(response, response_size,
+                 "Created %s project '%s' with %s. I couldn't auto-open VS Code; please open the folder manually.",
+                 language, project_name, entry_file);
+    }
 }
 
 static int extract_identifier_after_keyword(const char* command, const char* keyword, char* out, size_t out_size) {

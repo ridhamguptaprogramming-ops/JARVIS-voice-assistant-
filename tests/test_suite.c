@@ -26,6 +26,11 @@ static int file_contains(const char* path, const char* needle) {
     return found;
 }
 
+static int is_directory_path(const char* path) {
+    struct stat st;
+    return (stat(path, &st) == 0) && S_ISDIR(st.st_mode);
+}
+
 static int test_to_lowercase(void) {
     char* lower = to_lowercase("HeLLo C WoRLD");
     if (!lower) {
@@ -318,6 +323,129 @@ cleanup:
     return ok;
 }
 
+static int test_open_vscode_command_path(void) {
+    setenv("JARVIS_NO_GUI", "1", 1);
+    char* response = process_command("open vs code");
+    unsetenv("JARVIS_NO_GUI");
+
+    if (!response) {
+        fprintf(stderr, "process_command(open vs code) returned NULL\n");
+        return 0;
+    }
+
+    int ok = 1;
+    if (strstr(response, "Opening Visual Studio Code for you") == NULL) {
+        fprintf(stderr, "Unexpected VS Code open response: %s\n", response);
+        ok = 0;
+    }
+
+    free(response);
+    return ok;
+}
+
+static int test_open_xcode_routes_correctly(void) {
+    setenv("JARVIS_NO_GUI", "1", 1);
+    char* response = process_command("open xcode");
+    unsetenv("JARVIS_NO_GUI");
+
+    if (!response) {
+        fprintf(stderr, "process_command(open xcode) returned NULL\n");
+        return 0;
+    }
+
+    int ok = 1;
+    if (strstr(response, "Opening Xcode for you") == NULL) {
+        fprintf(stderr, "Unexpected Xcode open response: %s\n", response);
+        ok = 0;
+    }
+    if (strstr(response, "Visual Studio Code") != NULL) {
+        fprintf(stderr, "Xcode command incorrectly routed to VS Code: %s\n", response);
+        ok = 0;
+    }
+
+    free(response);
+    return ok;
+}
+
+static int test_ai_project_bootstrap_python(void) {
+    char original_cwd[PATH_MAX];
+    if (!getcwd(original_cwd, sizeof(original_cwd))) {
+        perror("getcwd");
+        return 0;
+    }
+
+    char template[] = "/tmp/jarvis_bootstrap_test_XXXXXX";
+    char* temp_dir = mkdtemp(template);
+    if (!temp_dir) {
+        perror("mkdtemp");
+        return 0;
+    }
+
+    int ok = 1;
+    char project_dir[PATH_MAX];
+    char entry_path[PATH_MAX];
+    char readme_path[PATH_MAX];
+
+    snprintf(project_dir, sizeof(project_dir), "%s/auto_py", temp_dir);
+    snprintf(entry_path, sizeof(entry_path), "%s/main.py", project_dir);
+    snprintf(readme_path, sizeof(readme_path), "%s/README.md", project_dir);
+
+    if (chdir(temp_dir) != 0) {
+        perror("chdir temp_dir");
+        ok = 0;
+        goto cleanup;
+    }
+
+    setenv("JARVIS_NO_GUI", "1", 1);
+    char* response = process_command("create project auto_py in python using vscode");
+    unsetenv("JARVIS_NO_GUI");
+
+    if (!response) {
+        fprintf(stderr, "process_command(create project) returned NULL\n");
+        ok = 0;
+    } else {
+        if (strstr(response, "Created python project 'auto_py'") == NULL ||
+            strstr(response, "main.py") == NULL) {
+            fprintf(stderr, "Unexpected project bootstrap response: %s\n", response);
+            ok = 0;
+        }
+        free(response);
+    }
+
+    if (!is_directory_path(project_dir)) {
+        fprintf(stderr, "Expected project directory missing: %s\n", project_dir);
+        ok = 0;
+    }
+
+    if (access(entry_path, F_OK) != 0) {
+        fprintf(stderr, "Expected project entry file missing: %s\n", entry_path);
+        ok = 0;
+    }
+
+    if (access(readme_path, F_OK) != 0) {
+        fprintf(stderr, "Expected project README missing: %s\n", readme_path);
+        ok = 0;
+    }
+
+    if (!file_contains(entry_path, "Hello from JARVIS")) {
+        fprintf(stderr, "Starter code not found in %s\n", entry_path);
+        ok = 0;
+    }
+
+cleanup:
+    if (chdir(original_cwd) != 0) {
+        perror("chdir original_cwd");
+        ok = 0;
+    }
+
+    remove(entry_path);
+    remove(readme_path);
+    rmdir(project_dir);
+    rmdir(temp_dir);
+
+    return ok;
+}
+
 int main(void) {
     int total = 0;
     int passed = 0;
@@ -340,6 +468,9 @@ int main(void) {
     RUN_TEST(test_daily_status_non_git_dir);
     RUN_TEST(test_find_function_path);
     RUN_TEST(test_warning_check_flow);
+    RUN_TEST(test_open_vscode_command_path);
+    RUN_TEST(test_open_xcode_routes_correctly);
+    RUN_TEST(test_ai_project_bootstrap_python);
     RUN_TEST(test_create_module_updates_makefile);
 
 #undef RUN_TEST

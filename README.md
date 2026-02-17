@@ -9,6 +9,7 @@ A sophisticated voice-controlled assistant written in C, inspired by the AI from
 - **Command Processing**: Natural language command recognition and execution
 - **C Workflow Automation**: Build, rebuild, test, and warning checks via voice
 - **Coding Support**: Symbol search, TODO/FIXME scan, and C module scaffolding
+- **AI-Style Project Bootstrap**: Create a new project, generate starter code, and open VS Code automatically
 - **Daily Dev Routines**: Git status/pull/push and morning workflow summaries
 - **Modular Architecture**: Separate modules for input, output, and command processing
 - **Generative AI**: Integration with Gemini API for intelligent responses (See [AI_UPGRADE.md](AI_UPGRADE.md))
@@ -65,6 +66,7 @@ make clean
 - **Compiler Checks**: "Check warnings", "Show warnings"
 - **Code Navigation**: "Find function process_command", "Find symbol jarvis_run", "Show todo"
 - **Module Scaffold**: "Create c module parser"
+- **AI Project Creation**: "Create project billing_api in python using vscode"
 - **Workflow Automation**: "Daily status", "Morning sync", "Git status", "Git pull", "Git push"
 - **Project Navigation**: "Where am I", "List files", "Go to folder src", "Create file notes.txt"
 - **Joke**: "Tell me a joke" - JARVIS will tell a joke

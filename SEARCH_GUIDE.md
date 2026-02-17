@@ -111,6 +111,21 @@ stack overflow search segmentation fault
 github search jarvis command processor
 ```
 
+### 7. AI-Style Project Bootstrap
+Create a new project folder, generate starter code, and open it in VS Code:
+
+```text
+create project billing_api in python using vscode
+create project low_level_tool in c
+new project weather_dash in javascript
+start project compiler_lab in cpp
+```
+
+Behavior:
+- Detects language from the command (C, C++, Python, JavaScript, TypeScript, Java, Go, Rust, HTML).
+- Creates a project directory with starter entry file and README.
+- Opens the project in a new VS Code window when available.
+
 ## Suggested Daily Routine
 1. `daily status`
 2. `check warnings`
@@ -124,6 +139,7 @@ github search jarvis command processor
 ## Limitations
 - `check warnings` depends on compiler warning output.
 - Module scaffolding auto-updates `SOURCES` and `OBJECTS` when standard variable lines exist in `Makefile`.
+- Auto-open depends on VS Code availability (`code` CLI or OS-level fallback).
 
 ## Implementation Pointers
 - Command router: `src/command_processor.c`
