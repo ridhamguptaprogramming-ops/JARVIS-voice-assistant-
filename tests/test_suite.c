@@ -191,6 +191,133 @@ cleanup:
     return ok;
 }
 
+static int test_daily_status_non_git_dir(void) {
+    char original_cwd[PATH_MAX];
+    if (!getcwd(original_cwd, sizeof(original_cwd))) {
+        perror("getcwd");
+        return 0;
+    }
+
+    char template[] = "/tmp/jarvis_daily_status_test_XXXXXX";
+    char* temp_dir = mkdtemp(template);
+    if (!temp_dir) {
+        perror("mkdtemp");
+        return 0;
+    }
+
+    int ok = 1;
+    if (chdir(temp_dir) != 0) {
+        perror("chdir temp_dir");
+        ok = 0;
+        goto cleanup;
+    }
+
+    char* response = process_command("daily status");
+    if (!response) {
+        fprintf(stderr, "process_command(daily status) returned NULL\n");
+        ok = 0;
+    } else {
+        if (strstr(response, "Not a git repository.") == NULL) {
+            fprintf(stderr, "Unexpected daily status response: %s\n", response);
+            ok = 0;
+        }
+        free(response);
+    }
+
+cleanup:
+    if (chdir(original_cwd) != 0) {
+        perror("chdir original_cwd");
+        ok = 0;
+    }
+    rmdir(temp_dir);
+
+    return ok;
+}
+
+static int test_find_function_path(void) {
+    char* response = process_command("find function process_command");
+    if (!response) {
+        fprintf(stderr, "process_command(find function) returned NULL\n");
+        return 0;
+    }
+
+    int ok = 1;
+    if (strstr(response, "process_command") == NULL) {
+        fprintf(stderr, "Expected function search to mention process_command, got: %s\n", response);
+        ok = 0;
+    }
+    if (strstr(response, "No matches found for") != NULL) {
+        fprintf(stderr, "Expected at least one function match, got: %s\n", response);
+        ok = 0;
+    }
+
+    free(response);
+    return ok;
+}
+
+static int test_warning_check_flow(void) {
+    char original_cwd[PATH_MAX];
+    if (!getcwd(original_cwd, sizeof(original_cwd))) {
+        perror("getcwd");
+        return 0;
+    }
+
+    char template[] = "/tmp/jarvis_warning_test_XXXXXX";
+    char* temp_dir = mkdtemp(template);
+    if (!temp_dir) {
+        perror("mkdtemp");
+        return 0;
+    }
+
+    int ok = 1;
+    char makefile_path[PATH_MAX];
+    snprintf(makefile_path, sizeof(makefile_path), "%s/Makefile", temp_dir);
+
+    FILE* makefile = fopen(makefile_path, "w");
+    if (!makefile) {
+        perror("fopen Makefile");
+        ok = 0;
+        goto cleanup;
+    }
+
+    fprintf(makefile,
+            "all:\n"
+            "\t@echo \"warning: synthetic warning from test\"\n\n"
+            "clean:\n"
+            "\t@echo \"clean\"\n");
+    fclose(makefile);
+
+    if (chdir(temp_dir) != 0) {
+        perror("chdir temp_dir");
+        ok = 0;
+        goto cleanup;
+    }
+
+    char* response = process_command("check warnings");
+    if (!response) {
+        fprintf(stderr, "process_command(check warnings) returned NULL\n");
+        ok = 0;
+    } else {
+        if (strstr(response, "Compiler warnings:") == NULL ||
+            strstr(response, "synthetic warning from test") == NULL) {
+            fprintf(stderr, "Unexpected warning-check response: %s\n", response);
+            ok = 0;
+        }
+        free(response);
+    }
+
+cleanup:
+    if (chdir(original_cwd) != 0) {
+        perror("chdir original_cwd");
+        ok = 0;
+    }
+
+    remove(makefile_path);
+    rmdir(temp_dir);
+
+    return ok;
+}
+
 int main(void) {
     int total = 0;
     int passed = 0;
@@ -210,6 +337,9 @@ int main(void) {
     RUN_TEST(test_command_contains);
     RUN_TEST(test_extract_search_query);
     RUN_TEST(test_process_help);
+    RUN_TEST(test_daily_status_non_git_dir);
+    RUN_TEST(test_find_function_path);
+    RUN_TEST(test_warning_check_flow);
     RUN_TEST(test_create_module_updates_makefile);
 
 #undef RUN_TEST
