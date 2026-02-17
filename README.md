@@ -7,6 +7,9 @@ A sophisticated voice-controlled assistant written in C, inspired by the AI from
 - **Voice Input**: Capture and process voice commands (with fallback to text input)
 - **Voice Output**: Text-to-speech responses using system audio
 - **Command Processing**: Natural language command recognition and execution
+- **C Workflow Automation**: Build, rebuild, test, and warning checks via voice
+- **Coding Support**: Symbol search, TODO/FIXME scan, and C module scaffolding
+- **Daily Dev Routines**: Git status/pull/push and morning workflow summaries
 - **Modular Architecture**: Separate modules for input, output, and command processing
 - **Generative AI**: Integration with Gemini API for intelligent responses (See [AI_UPGRADE.md](AI_UPGRADE.md))
 
@@ -28,6 +31,11 @@ make
 ### Build and Run
 ```bash
 make run
+```
+
+### Run Test Suite
+```bash
+make test
 ```
 
 ### Debug Build
@@ -53,10 +61,18 @@ make clean
 - **Greeting**: "Hello JARVIS", "Hi", "Hey" - JARVIS will greet you
 - **Help**: "Help" - Get list of available commands
 - **System Info**: "System information", "Info" - Get system details
+- **Build/Test (C)**: "Build project", "Rebuild project", "Run tests"
+- **Compiler Checks**: "Check warnings", "Show warnings"
+- **Code Navigation**: "Find function process_command", "Find symbol jarvis_run", "Show todo"
+- **Module Scaffold**: "Create c module parser"
+- **Workflow Automation**: "Daily status", "Morning sync", "Git status", "Git pull", "Git push"
+- **Project Navigation**: "Where am I", "List files", "Go to folder src", "Create file notes.txt"
 - **Joke**: "Tell me a joke" - JARVIS will tell a joke
 - **Weather**: "What's the weather?" - JARVIS will explain weather access limitations
 - **Shutdown**: "Exit", "Quit", "Shutdown" - Exit the application
 - **AI Chat**: "Ask AI [question]", "Explain [topic]", "Write [text]" - Generates intelligent responses
+
+For full developer workflow usage, see [SEARCH_GUIDE.md](SEARCH_GUIDE.md).
 
 ## Project Structure
 

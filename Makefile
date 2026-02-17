@@ -8,11 +8,15 @@ SRC_DIR = src
 INC_DIR = include
 BUILD_DIR = build
 BIN_DIR = .
+TEST_DIR = tests
+TEST_BUILD_DIR = $(BUILD_DIR)/tests
 
 # Source files
 SOURCES = $(SRC_DIR)/main.c $(SRC_DIR)/jarvis.c $(SRC_DIR)/voice_input.c $(SRC_DIR)/voice_output.c $(SRC_DIR)/command_processor.c $(SRC_DIR)/search.c
 OBJECTS = $(BUILD_DIR)/main.o $(BUILD_DIR)/jarvis.o $(BUILD_DIR)/voice_input.o $(BUILD_DIR)/voice_output.o $(BUILD_DIR)/command_processor.o $(BUILD_DIR)/search.o
 TARGET = $(BIN_DIR)/jarvis
+TEST_TARGET = $(TEST_BUILD_DIR)/test_suite
+TEST_SOURCES = $(TEST_DIR)/test_suite.c
 
 # Default target
 all: $(TARGET)
@@ -43,6 +47,16 @@ run: $(TARGET)
 run-gui: $(TARGET)
 	@echo "Launching JARVIS in a new terminal window..."
 	@bash scripts/run_jarvis_gui.sh
+
+# Build and run C tests
+test: $(TEST_TARGET)
+	@echo "Running C test suite..."
+	@./$(TEST_TARGET)
+
+$(TEST_TARGET): $(TEST_SOURCES) $(SRC_DIR)/command_processor.c $(SRC_DIR)/search.c include/command_processor.h include/search.h
+	@mkdir -p $(TEST_BUILD_DIR)
+	@echo "Compiling test suite..."
+	$(CC) $(CFLAGS) -I$(INC_DIR) $(TEST_SOURCES) $(SRC_DIR)/command_processor.c $(SRC_DIR)/search.c -o $(TEST_TARGET) $(LDFLAGS)
 
 # Enroll a new speaker profile. Usage: make enroll ENROLL_NAME="Your Name"
 enroll:
@@ -80,6 +94,7 @@ help:
 	@echo "Available targets:"
 	@echo "  make              - Build the project"
 	@echo "  make run          - Build and run JARVIS"
+	@echo "  make test         - Build and run C test suite"
 	@echo "  make debug        - Build with debug symbols"
 	@echo "  make clean        - Remove build artifacts"
 	@echo "  make rebuild      - Clean and rebuild"
@@ -93,4 +108,4 @@ setup:
 	@echo "Setup complete! JARVIS now has microphone support."
 	@echo "You can now run: make run"
 
-.PHONY: all run debug clean rebuild help setup
+.PHONY: all run test debug clean rebuild help setup
