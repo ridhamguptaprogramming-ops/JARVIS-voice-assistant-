@@ -29,8 +29,17 @@ static int write_file_content(const char* file_path, const char* content);
 static int create_project_files(const char* project_name, const char* language, char* entry_file, size_t entry_file_size,
                                 char* error_message, int error_message_size);
 static int open_project_in_vscode(const char* project_name, const char* entry_file);
+static int is_project_creation_request(const char* command);
+static void execute_open_project_command(const char* command, char* response, int response_size);
 static void sanitize_prompt_for_shell(const char* input, char* output, size_t output_size);
 static void run_ai_mode_command(const char* command, const char* mode, char* response, int response_size);
+static int sanitize_relative_path(const char* input, char* output, size_t output_size);
+static const char* starter_template_for_path(const char* file_path);
+static int create_file_with_optional_template(const char* file_path, int use_template, char* response, int response_size);
+static int extract_file_path_for_codegen(const char* command, char* file_path, size_t file_path_size);
+static int extract_codegen_prompt(const char* command, char* prompt, size_t prompt_size);
+static void strip_markdown_code_fences(char* text);
+static void execute_ai_code_file_command(const char* command, char* response, int response_size);
 static void launch_jarvis_ui_command(char* response, int response_size);
 
 /**
@@ -69,6 +78,7 @@ char* process_command(const char* command) {
     else if (command_contains(lower_cmd, "help")) {
         strcpy(response, "I can handle daily C development tasks: build project, run tests, check warnings, "
                         "find symbol <name>, create c module <name>, create project <name> in python, "
+                        "open project <name> in VS Code, create code file <name>, "
                         "git status, AI summary, AI ideas, and web search.");
     }
     // System info command
@@ -79,11 +89,12 @@ char* process_command(const char* command) {
         snprintf(response, response_size, "System information requested. JARVIS version 2.0.0 with voice control is running smoothly on macOS.");
     }
     // AI-like project setup (create project and open in VS Code)
-    else if (command_contains(lower_cmd, "project") &&
-             (command_contains(lower_cmd, "create") ||
-              command_contains(lower_cmd, "new") ||
-              command_contains(lower_cmd, "start"))) {
+    else if (is_project_creation_request(lower_cmd)) {
         execute_ai_project_setup_command(lower_cmd, response, response_size);
+    }
+    // Open an existing project in VS Code
+    else if (command_contains(lower_cmd, "open project")) {
+        execute_open_project_command(lower_cmd, response, response_size);
     }
     // YouTube search commands
     else if (command_contains(lower_cmd, "youtube") ||
@@ -148,12 +159,19 @@ char* process_command(const char* command) {
              command_contains(lower_cmd, "make")) {
         execute_dev_command(lower_cmd, response, response_size);
     }
+    // AI code generation directly into file
+    else if (command_contains(lower_cmd, "generate code file") ||
+             command_contains(lower_cmd, "create code file") ||
+             command_contains(lower_cmd, "write code file")) {
+        execute_ai_code_file_command(lower_cmd, response, response_size);
+    }
     // Project Navigation & Management
     else if (command_contains(lower_cmd, "change directory") ||
              command_contains(lower_cmd, "go to folder") ||
              command_contains(lower_cmd, "where am i") ||
              command_contains(lower_cmd, "list files") ||
-             command_contains(lower_cmd, "create file")) {
+             command_contains(lower_cmd, "create file") ||
+             command_contains(lower_cmd, "new file")) {
         execute_project_management(lower_cmd, response, response_size);
     }
     // Developer Search (Stack Overflow/GitHub)
@@ -254,8 +272,8 @@ char* process_command(const char* command) {
     // Default response - ask for clarification instead of searching
     else {
         snprintf(response, response_size, "I didn't understand '%s'. Try: build project, run tests, "
-                 "check warnings, find function <name>, create project <name> in python, daily status, "
-                 "search for <topic>, or quit.", command);
+                 "check warnings, find function <name>, create project <name>, open project <name>, "
+                 "create file <name>, generate code file <name> for <task>, search for <topic>, or quit.", command);
     }
 
     free(lower_cmd);
@@ -286,6 +304,181 @@ int command_contains(const char* command, const char* keyword) {
     if (!command || !keyword) return 0;
     
     return strstr(command, keyword) != NULL ? 1 : 0;
+}
+
+static int is_project_creation_request(const char* command) {
+    if (!command) {
+        return 0;
+    }
+
+    if (strstr(command, "build project") || strstr(command, "rebuild project") ||
+        strstr(command, "compile project") || strstr(command, "test project")) {
+        return 0;
+    }
+
+    if (strstr(command, "create project") || strstr(command, "new project") ||
+        strstr(command, "start project") || strstr(command, "project named") ||
+        strstr(command, "project called") || strstr(command, "make project") ||
+        strstr(command, "make a project") || strstr(command, "make an project")) {
+        return 1;
+    }
+
+    if (strstr(command, "project") && strstr(command, "make ")) {
+        return 1;
+    }
+
+    return 0;
+}
+
+static int sanitize_relative_path(const char* input, char* output, size_t output_size) {
+    if (!input || !output || output_size == 0) {
+        return 0;
+    }
+
+    while (*input && isspace((unsigned char)*input)) {
+        input++;
+    }
+
+    if (*input == '\0' || *input == '/' || *input == '~') {
+        return 0;
+    }
+
+    size_t out_len = 0;
+    for (size_t i = 0; input[i] != '\0' && out_len < output_size - 1; i++) {
+        char ch = input[i];
+        if (isspace((unsigned char)ch)) {
+            break;
+        }
+        if (!(isalnum((unsigned char)ch) || ch == '_' || ch == '-' || ch == '.' || ch == '/')) {
+            return 0;
+        }
+        output[out_len++] = ch;
+    }
+
+    while (out_len > 0 &&
+           (output[out_len - 1] == '.' || output[out_len - 1] == '!' || output[out_len - 1] == '?' || output[out_len - 1] == ',')) {
+        out_len--;
+    }
+    output[out_len] = '\0';
+
+    if (out_len == 0 || strstr(output, "..") != NULL || strstr(output, "//") != NULL) {
+        return 0;
+    }
+
+    return 1;
+}
+
+static const char* starter_template_for_path(const char* file_path) {
+    if (!file_path) {
+        return NULL;
+    }
+
+    const char* ext = strrchr(file_path, '.');
+    if (!ext) {
+        return NULL;
+    }
+
+    if (strcmp(ext, ".py") == 0) {
+        return "def main() -> None:\n    print(\"Hello from JARVIS\")\n\n\nif __name__ == \"__main__\":\n    main()\n";
+    }
+    if (strcmp(ext, ".js") == 0) {
+        return "function main() {\n  console.log(\"Hello from JARVIS\");\n}\n\nmain();\n";
+    }
+    if (strcmp(ext, ".ts") == 0) {
+        return "function main(): void {\n  console.log(\"Hello from JARVIS\");\n}\n\nmain();\n";
+    }
+    if (strcmp(ext, ".c") == 0) {
+        return "#include <stdio.h>\n\nint main(void) {\n    printf(\"Hello from JARVIS!\\n\");\n    return 0;\n}\n";
+    }
+    if (strcmp(ext, ".h") == 0) {
+        return "#pragma once\n\n";
+    }
+    if (strcmp(ext, ".html") == 0) {
+        return "<!doctype html>\n<html>\n  <head>\n    <meta charset=\"utf-8\" />\n    <title>JARVIS App</title>\n  </head>\n  <body>\n    <h1>Hello from JARVIS</h1>\n  </body>\n</html>\n";
+    }
+    if (strcmp(ext, ".css") == 0) {
+        return "body {\n  margin: 0;\n  font-family: sans-serif;\n}\n";
+    }
+    if (strcmp(ext, ".md") == 0) {
+        return "# New Notes\n\nCreated by JARVIS.\n";
+    }
+    if (strcmp(ext, ".json") == 0) {
+        return "{\n  \"name\": \"jarvis-project\"\n}\n";
+    }
+
+    return NULL;
+}
+
+static int create_file_with_optional_template(const char* file_path, int use_template, char* response, int response_size) {
+    if (!file_path || !response || response_size <= 0) {
+        return 0;
+    }
+
+    if (access(file_path, F_OK) == 0) {
+        snprintf(response, response_size, "File already exists: %s", file_path);
+        return 0;
+    }
+
+    FILE* file = fopen(file_path, "w");
+    if (!file) {
+        snprintf(response, response_size, "Failed to create file %s.", file_path);
+        return 0;
+    }
+
+    if (use_template) {
+        const char* template_content = starter_template_for_path(file_path);
+        if (template_content) {
+            fputs(template_content, file);
+            fclose(file);
+            snprintf(response, response_size, "Created %s with starter code.", file_path);
+            return 1;
+        }
+    }
+
+    fclose(file);
+    snprintf(response, response_size, "Created file %s.", file_path);
+    return 1;
+}
+
+static void execute_open_project_command(const char* command, char* response, int response_size) {
+    if (!command || !response || response_size <= 0) {
+        return;
+    }
+
+    const char* start = strstr(command, "open project");
+    if (!start) {
+        snprintf(response, response_size, "Please specify a project to open.");
+        return;
+    }
+
+    start += strlen("open project");
+    while (*start && isspace((unsigned char)*start)) {
+        start++;
+    }
+    if (strncmp(start, "named ", 6) == 0) {
+        start += 6;
+    } else if (strncmp(start, "called ", 7) == 0) {
+        start += 7;
+    }
+
+    char project_name[256] = {0};
+    if (!sanitize_relative_path(start, project_name, sizeof(project_name))) {
+        snprintf(response, response_size, "Please say: open project <project_name>.");
+        return;
+    }
+
+    struct stat st;
+    if (stat(project_name, &st) != 0 || !S_ISDIR(st.st_mode)) {
+        snprintf(response, response_size, "I couldn't find project folder '%s'.", project_name);
+        return;
+    }
+
+    int opened = open_project_in_vscode(project_name, "");
+    if (opened) {
+        snprintf(response, response_size, "Opening project '%s' in VS Code.", project_name);
+    } else {
+        snprintf(response, response_size, "Project '%s' is ready, but I couldn't open VS Code automatically.", project_name);
+    }
 }
 
 static void sanitize_prompt_for_shell(const char* input, char* output, size_t output_size) {
@@ -341,7 +534,16 @@ static void run_ai_mode_command(const char* command, const char* mode, char* res
         return;
     }
 
-    if (fgets(response, response_size, fp) == NULL) {
+    response[0] = '\0';
+    char line[256];
+    while (fgets(line, sizeof(line), fp) != NULL) {
+        if (strlen(response) + strlen(line) + 1 >= (size_t)response_size) {
+            break;
+        }
+        strcat(response, line);
+    }
+
+    if (strlen(response) == 0) {
         snprintf(response, response_size, "I couldn't generate a response.");
     }
 
@@ -352,6 +554,159 @@ static void run_ai_mode_command(const char* command, const char* mode, char* res
     }
 
     pclose(fp);
+}
+
+static int extract_file_path_for_codegen(const char* command, char* file_path, size_t file_path_size) {
+    if (!command || !file_path || file_path_size == 0) {
+        return 0;
+    }
+
+    const char* markers[] = {
+        "generate code file ",
+        "create code file ",
+        "write code file "
+    };
+
+    const char* start = NULL;
+    for (size_t i = 0; i < sizeof(markers) / sizeof(markers[0]); i++) {
+        start = strstr(command, markers[i]);
+        if (start) {
+            start += strlen(markers[i]);
+            break;
+        }
+    }
+
+    if (!start) {
+        return 0;
+    }
+
+    while (*start && isspace((unsigned char)*start)) {
+        start++;
+    }
+
+    char raw_path[256] = {0};
+    size_t i = 0;
+    while (start[i] && !isspace((unsigned char)start[i]) && i < sizeof(raw_path) - 1) {
+        raw_path[i] = start[i];
+        i++;
+    }
+    raw_path[i] = '\0';
+
+    return sanitize_relative_path(raw_path, file_path, file_path_size);
+}
+
+static int extract_codegen_prompt(const char* command, char* prompt, size_t prompt_size) {
+    if (!command || !prompt || prompt_size == 0) {
+        return 0;
+    }
+
+    const char* marker = strstr(command, " for ");
+    if (!marker) {
+        marker = strstr(command, " about ");
+        if (!marker) {
+            return 0;
+        }
+        marker += strlen(" about ");
+    } else {
+        marker += strlen(" for ");
+    }
+
+    while (*marker && isspace((unsigned char)*marker)) {
+        marker++;
+    }
+
+    sanitize_prompt_for_shell(marker, prompt, prompt_size);
+    return strlen(prompt) > 0;
+}
+
+static void strip_markdown_code_fences(char* text) {
+    if (!text || strncmp(text, "```", 3) != 0) {
+        return;
+    }
+
+    char* first_newline = strchr(text, '\n');
+    if (!first_newline) {
+        return;
+    }
+
+    char* content_start = first_newline + 1;
+    char* last_fence = NULL;
+    char* cursor = strstr(content_start, "```");
+    while (cursor) {
+        last_fence = cursor;
+        cursor = strstr(cursor + 3, "```");
+    }
+
+    if (last_fence) {
+        *last_fence = '\0';
+    }
+
+    memmove(text, content_start, strlen(content_start) + 1);
+}
+
+static void execute_ai_code_file_command(const char* command, char* response, int response_size) {
+    char file_path[256] = {0};
+    if (!extract_file_path_for_codegen(command, file_path, sizeof(file_path))) {
+        snprintf(response, response_size, "Please say: generate code file <name> for <task>.");
+        return;
+    }
+
+    char prompt[768] = {0};
+    if (!extract_codegen_prompt(command, prompt, sizeof(prompt))) {
+        snprintf(response, response_size, "Please include what code you want. Example: generate code file app.py for flask login api.");
+        return;
+    }
+
+    char sys_cmd[1200];
+    snprintf(sys_cmd, sizeof(sys_cmd), "python3 src/ai_chat.py --mode code \"%s\"", prompt);
+
+    FILE* fp = popen(sys_cmd, "r");
+    if (!fp) {
+        snprintf(response, response_size, "I cannot access AI code generation right now.");
+        return;
+    }
+
+    char ai_code[8192];
+    ai_code[0] = '\0';
+    char line[256];
+    while (fgets(line, sizeof(line), fp) != NULL) {
+        if (strlen(ai_code) + strlen(line) + 1 >= sizeof(ai_code)) {
+            break;
+        }
+        strcat(ai_code, line);
+    }
+    pclose(fp);
+
+    strip_markdown_code_fences(ai_code);
+
+    size_t code_len = strlen(ai_code);
+    while (code_len > 0 && (ai_code[code_len - 1] == '\n' || ai_code[code_len - 1] == '\r')) {
+        ai_code[--code_len] = '\0';
+    }
+
+    if (code_len == 0) {
+        snprintf(response, response_size, "AI did not return code content.");
+        return;
+    }
+
+    if (strncmp(ai_code, "AI module missing", 17) == 0 ||
+        strncmp(ai_code, "I need an API key", 17) == 0 ||
+        strncmp(ai_code, "I cannot load an AI model", 24) == 0 ||
+        strncmp(ai_code, "I am having trouble", 18) == 0) {
+        snprintf(response, response_size, "%s", ai_code);
+        return;
+    }
+
+    FILE* out = fopen(file_path, "w");
+    if (!out) {
+        snprintf(response, response_size, "I couldn't write code to %s. Ensure folder exists.", file_path);
+        return;
+    }
+    fputs(ai_code, out);
+    fputc('\n', out);
+    fclose(out);
+
+    snprintf(response, response_size, "Generated code in %s and saved it.", file_path);
 }
 
 static void launch_jarvis_ui_command(char* response, int response_size) {
@@ -652,7 +1007,7 @@ static int is_project_stop_word(const char* token) {
 
     const char* stop_words[] = {
         "in", "using", "with", "for", "on", "inside",
-        "vscode", "code", "language", "as", "called",
+        "vscode", "code", "language", "as", "called", "and", "then", "open", "folder",
         "python", "javascript", "typescript", "java",
         "golang", "go", "rust", "html", "c", "cpp", "c++"
     };
@@ -707,11 +1062,18 @@ static int extract_project_name_from_command(const char* command, char* project_
 
     if (strncmp(project_pos, "named ", 6) == 0) {
         project_pos += 6;
+    } else if (strncmp(project_pos, "called ", 7) == 0) {
+        project_pos += 7;
+    } else if (strncmp(project_pos, "name ", 5) == 0) {
+        project_pos += 5;
     }
 
     size_t out_len = 0;
     while (*project_pos) {
         while (*project_pos && isspace((unsigned char)*project_pos)) {
+            project_pos++;
+        }
+        while (*project_pos == '"' || *project_pos == '\'') {
             project_pos++;
         }
         if (!*project_pos) {
@@ -723,7 +1085,7 @@ static int extract_project_name_from_command(const char* command, char* project_
         while (project_pos[token_len] && !isspace((unsigned char)project_pos[token_len]) &&
                token_len < sizeof(token) - 1) {
             char ch = project_pos[token_len];
-            if (ch == '.' || ch == ',' || ch == '!' || ch == '?' || ch == ':') {
+            if (ch == '"' || ch == '\'' || ch == '.' || ch == ',' || ch == '!' || ch == '?' || ch == ':') {
                 break;
             }
             token[token_len] = ch;
@@ -889,9 +1251,15 @@ static int open_project_in_vscode(const char* project_name, const char* entry_fi
 
     if (system("command -v code >/dev/null 2>&1") == 0) {
         char code_cmd[768];
-        snprintf(code_cmd, sizeof(code_cmd),
-                 "code -n \"%s\" -g \"%s/%s\" >/dev/null 2>&1 &",
-                 project_name, project_name, entry_file);
+        if (entry_file && strlen(entry_file) > 0) {
+            snprintf(code_cmd, sizeof(code_cmd),
+                     "code -n \"%s\" -g \"%s/%s\" >/dev/null 2>&1 &",
+                     project_name, project_name, entry_file);
+        } else {
+            snprintf(code_cmd, sizeof(code_cmd),
+                     "code -n \"%s\" >/dev/null 2>&1 &",
+                     project_name);
+        }
         return system(code_cmd) == 0;
     }
 
@@ -1357,39 +1725,57 @@ void execute_project_management(const char* command, char* response, int respons
             snprintf(response, response_size, "Please specify a directory.");
         }
     }
-    else if (strstr(command, "create file")) {
-        const char* start = strstr(command, "file ");
+    else if (strstr(command, "create file") || strstr(command, "new file")) {
+        const char* start = strstr(command, "create file");
         if (start) {
-            start += 5;
-            while (*start && isspace((unsigned char)*start)) start++;
-
-            char file_path[256] = {0};
-            size_t i = 0;
-            while (start[i] && !isspace((unsigned char)start[i]) && i < sizeof(file_path) - 1) {
-                char ch = start[i];
-                if (ch == ';' || ch == '&' || ch == '|' || ch == '>' || ch == '<' || ch == '$') {
-                    snprintf(response, response_size, "File name contains invalid characters.");
-                    return;
-                }
-                file_path[i] = ch;
-                i++;
-            }
-            file_path[i] = '\0';
-
-            if (strlen(file_path) == 0) {
-                snprintf(response, response_size, "Please provide a file name.");
-                return;
-            }
-
-            FILE* file = fopen(file_path, "a");
-            if (!file) {
-                snprintf(response, response_size, "Failed to create file %s.", file_path);
-                return;
-            }
-            fclose(file);
-            snprintf(response, response_size, "Created file %s.", file_path);
+            start += strlen("create file");
         } else {
-            snprintf(response, response_size, "Please specify a file name.");
+            start = strstr(command, "new file");
+            if (start) {
+                start += strlen("new file");
+            }
         }
+
+        if (!start) {
+            snprintf(response, response_size, "Please specify a file name.");
+            return;
+        }
+
+        while (*start && isspace((unsigned char)*start)) {
+            start++;
+        }
+
+        char raw_file_path[256] = {0};
+        size_t i = 0;
+        while (start[i] && !isspace((unsigned char)start[i]) && i < sizeof(raw_file_path) - 1) {
+            raw_file_path[i] = start[i];
+            i++;
+        }
+        raw_file_path[i] = '\0';
+
+        char file_path[256] = {0};
+        if (!sanitize_relative_path(raw_file_path, file_path, sizeof(file_path))) {
+            snprintf(response, response_size, "Invalid file name. Use something like notes.md or src/main.py");
+            return;
+        }
+
+        char full_path[512] = {0};
+        snprintf(full_path, sizeof(full_path), "%s", file_path);
+
+        const char* project_pos = strstr(command, " in project ");
+        if (project_pos) {
+            project_pos += strlen(" in project ");
+            char project_name[128] = {0};
+            if (sanitize_relative_path(project_pos, project_name, sizeof(project_name))) {
+                snprintf(full_path, sizeof(full_path), "%s/%s", project_name, file_path);
+            }
+        }
+
+        int wants_template = strstr(command, "template") != NULL ||
+                             strstr(command, "boilerplate") != NULL ||
+                             strstr(command, "starter") != NULL ||
+                             strstr(command, "code") != NULL;
+
+        create_file_with_optional_template(full_path, wants_template, response, response_size);
     }
 }

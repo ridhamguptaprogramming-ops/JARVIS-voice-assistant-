@@ -446,6 +446,195 @@ cleanup:
     return ok;
 }
 
+static int test_open_project_command_path(void) {
+    char original_cwd[PATH_MAX];
+    if (!getcwd(original_cwd, sizeof(original_cwd))) {
+        perror("getcwd");
+        return 0;
+    }
+
+    char template[] = "/tmp/jarvis_open_project_test_XXXXXX";
+    char* temp_dir = mkdtemp(template);
+    if (!temp_dir) {
+        perror("mkdtemp");
+        return 0;
+    }
+
+    int ok = 1;
+    char project_path[PATH_MAX];
+    snprintf(project_path, sizeof(project_path), "%s/sample_app", temp_dir);
+    if (mkdir(project_path, 0700) != 0) {
+        perror("mkdir project");
+        ok = 0;
+        goto cleanup;
+    }
+
+    if (chdir(temp_dir) != 0) {
+        perror("chdir temp_dir");
+        ok = 0;
+        goto cleanup;
+    }
+
+    setenv("JARVIS_NO_GUI", "1", 1);
+    char* response = process_command("open project sample_app");
+    unsetenv("JARVIS_NO_GUI");
+
+    if (!response) {
+        fprintf(stderr, "process_command(open project) returned NULL\n");
+        ok = 0;
+    } else {
+        if (strstr(response, "Opening project 'sample_app' in VS Code.") == NULL) {
+            fprintf(stderr, "Unexpected open project response: %s\n", response);
+            ok = 0;
+        }
+        free(response);
+    }
+
+cleanup:
+    if (chdir(original_cwd) != 0) {
+        perror("chdir original_cwd");
+        ok = 0;
+    }
+    rmdir(project_path);
+    rmdir(temp_dir);
+    return ok;
+}
+
+static int test_create_file_with_template(void) {
+    char original_cwd[PATH_MAX];
+    if (!getcwd(original_cwd, sizeof(original_cwd))) {
+        perror("getcwd");
+        return 0;
+    }
+
+    char template[] = "/tmp/jarvis_create_file_test_XXXXXX";
+    char* temp_dir = mkdtemp(template);
+    if (!temp_dir) {
+        perror("mkdtemp");
+        return 0;
+    }
+
+    int ok = 1;
+    char file_path[PATH_MAX];
+    snprintf(file_path, sizeof(file_path), "%s/starter.py", temp_dir);
+
+    if (chdir(temp_dir) != 0) {
+        perror("chdir temp_dir");
+        ok = 0;
+        goto cleanup;
+    }
+
+    char* response = process_command("create file starter.py with template");
+    if (!response) {
+        fprintf(stderr, "process_command(create file template) returned NULL\n");
+        ok = 0;
+    } else {
+        if (strstr(response, "starter code") == NULL) {
+            fprintf(stderr, "Unexpected create file response: %s\n", response);
+            ok = 0;
+        }
+        free(response);
+    }
+
+    if (access(file_path, F_OK) != 0) {
+        fprintf(stderr, "Expected file missing: %s\n", file_path);
+        ok = 0;
+    } else if (!file_contains(file_path, "def main()")) {
+        fprintf(stderr, "Starter template was not written to %s\n", file_path);
+        ok = 0;
+    }
+
+cleanup:
+    if (chdir(original_cwd) != 0) {
+        perror("chdir original_cwd");
+        ok = 0;
+    }
+    remove(file_path);
+    rmdir(temp_dir);
+    return ok;
+}
+
+static int test_generate_code_file_requires_prompt(void) {
+    char* response = process_command("generate code file app.py");
+    if (!response) {
+        fprintf(stderr, "process_command(generate code file) returned NULL\n");
+        return 0;
+    }
+
+    int ok = strstr(response, "Please include what code you want") != NULL;
+    if (!ok) {
+        fprintf(stderr, "Unexpected generate code validation response: %s\n", response);
+    }
+
+    free(response);
+    return ok;
+}
+
+static int test_make_a_project_phrase_routes_to_project_creation(void) {
+    char original_cwd[PATH_MAX];
+    if (!getcwd(original_cwd, sizeof(original_cwd))) {
+        perror("getcwd");
+        return 0;
+    }
+
+    char template[] = "/tmp/jarvis_make_project_phrase_test_XXXXXX";
+    char* temp_dir = mkdtemp(template);
+    if (!temp_dir) {
+        perror("mkdtemp");
+        return 0;
+    }
+
+    int ok = 1;
+    char project_dir[PATH_MAX];
+    char entry_path[PATH_MAX];
+    snprintf(project_dir, sizeof(project_dir), "%s/rhythm_gupta", temp_dir);
+    snprintf(entry_path, sizeof(entry_path), "%s/main.py", project_dir);
+
+    if (chdir(temp_dir) != 0) {
+        perror("chdir temp_dir");
+        ok = 0;
+        goto cleanup;
+    }
+
+    setenv("JARVIS_NO_GUI", "1", 1);
+    char* response = process_command("make a project rhythm gupta in python language");
+    unsetenv("JARVIS_NO_GUI");
+
+    if (!response) {
+        fprintf(stderr, "process_command(make a project ...) returned NULL\n");
+        ok = 0;
+    } else {
+        if (strstr(response, "Created python project 'rhythm_gupta'") == NULL) {
+            fprintf(stderr, "Unexpected make-a-project response: %s\n", response);
+            ok = 0;
+        }
+        free(response);
+    }
+
+    if (!is_directory_path(project_dir)) {
+        fprintf(stderr, "Expected project directory missing: %s\n", project_dir);
+        ok = 0;
+    }
+
+    if (access(entry_path, F_OK) != 0) {
+        fprintf(stderr, "Expected Python entry file missing: %s\n", entry_path);
+        ok = 0;
+    }
+
+cleanup:
+    if (chdir(original_cwd) != 0) {
+        perror("chdir original_cwd");
+        ok = 0;
+    }
+
+    remove(entry_path);
+    remove(project_dir);
+    rmdir(project_dir);
+    rmdir(temp_dir);
+
+    return ok;
+}
+
 int main(void) {
     int total = 0;
     int passed = 0;
@@ -471,6 +660,10 @@ int main(void) {
     RUN_TEST(test_open_vscode_command_path);
     RUN_TEST(test_open_xcode_routes_correctly);
     RUN_TEST(test_ai_project_bootstrap_python);
+    RUN_TEST(test_open_project_command_path);
+    RUN_TEST(test_create_file_with_template);
+    RUN_TEST(test_generate_code_file_requires_prompt);
+    RUN_TEST(test_make_a_project_phrase_routes_to_project_creation);
     RUN_TEST(test_create_module_updates_makefile);
 
 #undef RUN_TEST

@@ -18,8 +18,9 @@ MAX_HISTORY_MESSAGES = int(os.getenv("JARVIS_MAX_HISTORY_MESSAGES", "16"))
 
 PERSONAS: Dict[str, str] = {
     "default": (
-        "You are JARVIS, a helpful voice assistant. Keep replies concise, conversational, "
-        "and practical. Avoid markdown symbols."
+        "You are JARVIS, an open-minded AI assistant and coding copilot. "
+        "Be practical, clear, and adaptive to the user's intent. "
+        "For normal chat, keep replies concise and conversational. Avoid markdown symbols unless asked."
     ),
     "sarcastic": "You are JARVIS with dry sarcasm. Be concise and witty while still helping.",
     "pirate": "You are a pirate captain AI. Reply in pirate slang and stay concise.",
@@ -30,6 +31,7 @@ MODE_PROMPTS: Dict[str, str] = {
     "chat": "Respond naturally in short spoken style.",
     "summary": "Summarize the request in 3 short bullet points with practical focus.",
     "ideas": "Give 5 practical ideas as short bullet points.",
+    "code": "Return only production-ready code for the request. Do not include markdown fences.",
 }
 
 
@@ -171,7 +173,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="JARVIS AI chat bridge")
     parser.add_argument(
         "--mode",
-        choices=["chat", "summary", "ideas"],
+        choices=["chat", "summary", "ideas", "code"],
         default="chat",
         help="AI response mode",
     )

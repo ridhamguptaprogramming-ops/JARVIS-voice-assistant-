@@ -74,12 +74,14 @@ make run-ui
 - **Code Navigation**: "Find function process_command", "Find symbol jarvis_run", "Show todo"
 - **Module Scaffold**: "Create c module parser"
 - **AI Project Creation**: "Create project billing_api in python using vscode"
+- **Open Existing Project**: "Open project billing_api" - Opens that folder in VS Code
 - **Workflow Automation**: "Daily status", "Morning sync", "Git status", "Git pull", "Git push"
-- **Project Navigation**: "Where am I", "List files", "Go to folder src", "Create file notes.txt"
+- **Project Navigation**: "Where am I", "List files", "Go to folder src", "Create file notes.txt", "Create file app.py with template"
 - **Joke**: "Tell me a joke" - JARVIS will tell a joke
 - **Weather**: "What's the weather?" - JARVIS will explain weather access limitations
 - **Shutdown**: "Exit", "Quit", "Shutdown" - Exit the application
 - **AI Chat**: "Ask AI [question]", "Explain [topic]", "Write [text]" - Generates intelligent responses
+- **AI Code File**: "Generate code file app.py for flask auth API" - Writes generated code directly to file
 - **AI Summary**: "Summarize [topic/text]" - Generates concise summary points
 - **AI Ideas**: "Give ideas about [topic]" / "Brainstorm [topic]" - Generates practical idea list
 - **Open UI**: "Open Jarvis UI" / "Open AI window" - Opens the desktop UI
