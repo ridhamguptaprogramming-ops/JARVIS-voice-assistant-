@@ -29,11 +29,16 @@ static int write_file_content(const char* file_path, const char* content);
 static int create_project_files(const char* project_name, const char* language, char* entry_file, size_t entry_file_size,
                                 char* error_message, int error_message_size);
 static int open_project_in_vscode(const char* project_name, const char* entry_file);
+static int open_file_in_vscode(const char* file_path);
+static int save_last_project_name(const char* project_name);
+static int load_last_project_name(char* project_name, size_t project_name_size);
 static int is_project_creation_request(const char* command);
 static void execute_open_project_command(const char* command, char* response, int response_size);
+static void execute_open_last_project_command(char* response, int response_size);
 static void sanitize_prompt_for_shell(const char* input, char* output, size_t output_size);
 static void run_ai_mode_command(const char* command, const char* mode, char* response, int response_size);
 static int sanitize_relative_path(const char* input, char* output, size_t output_size);
+static int create_directory_recursive(const char* path);
 static const char* starter_template_for_path(const char* file_path);
 static int create_file_with_optional_template(const char* file_path, int use_template, char* response, int response_size);
 static int extract_file_path_for_codegen(const char* command, char* file_path, size_t file_path_size);
@@ -78,8 +83,9 @@ char* process_command(const char* command) {
     else if (command_contains(lower_cmd, "help")) {
         strcpy(response, "I can handle daily C development tasks: build project, run tests, check warnings, "
                         "find symbol <name>, create c module <name>, create project <name> in python, "
-                        "open project <name> in VS Code, create code file <name>, "
-                        "git status, AI summary, AI ideas, and web search.");
+                        "open project <name> in VS Code, open last project, create folder <name>, "
+                        "open file <path>, create code file <name>, git status, AI summary, AI ideas, "
+                        "AI plan mode, and web search.");
     }
     // System info command
     else if (command_contains(lower_cmd, "system info") ||
@@ -95,6 +101,15 @@ char* process_command(const char* command) {
     // Open an existing project in VS Code
     else if (command_contains(lower_cmd, "open project")) {
         execute_open_project_command(lower_cmd, response, response_size);
+    }
+    // Open last created project in VS Code
+    else if (command_contains(lower_cmd, "open last project") ||
+             command_contains(lower_cmd, "open recent project")) {
+        execute_open_last_project_command(response, response_size);
+    }
+    // Open file in VS Code
+    else if (command_contains(lower_cmd, "open file")) {
+        execute_project_management(lower_cmd, response, response_size);
     }
     // YouTube search commands
     else if (command_contains(lower_cmd, "youtube") ||
@@ -168,10 +183,13 @@ char* process_command(const char* command) {
     // Project Navigation & Management
     else if (command_contains(lower_cmd, "change directory") ||
              command_contains(lower_cmd, "go to folder") ||
+             command_contains(lower_cmd, "create folder") ||
+             command_contains(lower_cmd, "new folder") ||
              command_contains(lower_cmd, "where am i") ||
              command_contains(lower_cmd, "list files") ||
              command_contains(lower_cmd, "create file") ||
-             command_contains(lower_cmd, "new file")) {
+             command_contains(lower_cmd, "new file") ||
+             command_contains(lower_cmd, "open file")) {
         execute_project_management(lower_cmd, response, response_size);
     }
     // Developer Search (Stack Overflow/GitHub)
@@ -260,20 +278,25 @@ char* process_command(const char* command) {
              command_contains(lower_cmd, "summarize") ||
              command_contains(lower_cmd, "summary") ||
              command_contains(lower_cmd, "brainstorm") ||
-             command_contains(lower_cmd, "ideas")) {
+             command_contains(lower_cmd, "ideas") ||
+             command_contains(lower_cmd, "plan") ||
+             command_contains(lower_cmd, "roadmap")) {
         const char* ai_mode = "chat";
         if (command_contains(lower_cmd, "summarize") || command_contains(lower_cmd, "summary")) {
             ai_mode = "summary";
         } else if (command_contains(lower_cmd, "brainstorm") || command_contains(lower_cmd, "ideas")) {
             ai_mode = "ideas";
+        } else if (command_contains(lower_cmd, "plan") || command_contains(lower_cmd, "roadmap")) {
+            ai_mode = "plan";
         }
         run_ai_mode_command(command, ai_mode, response, response_size);
     }
     // Default response - ask for clarification instead of searching
     else {
         snprintf(response, response_size, "I didn't understand '%s'. Try: build project, run tests, "
-                 "check warnings, find function <name>, create project <name>, open project <name>, "
-                 "create file <name>, generate code file <name> for <task>, search for <topic>, or quit.", command);
+                "check warnings, find function <name>, create project <name>, open project <name>, "
+                "open last project, create folder <name>, open file <path>, create file <name>, "
+                "generate code file <name> for <task>, search for <topic>, or quit.", command);
     }
 
     free(lower_cmd);
@@ -368,6 +391,40 @@ static int sanitize_relative_path(const char* input, char* output, size_t output
     return 1;
 }
 
+static int create_directory_recursive(const char* path) {
+    if (!path || strlen(path) == 0) {
+        return 0;
+    }
+
+    char temp[512];
+    snprintf(temp, sizeof(temp), "%s", path);
+
+    size_t len = strlen(temp);
+    if (len == 0 || len >= sizeof(temp)) {
+        return 0;
+    }
+
+    if (temp[len - 1] == '/') {
+        temp[len - 1] = '\0';
+    }
+
+    for (char* p = temp + 1; *p; p++) {
+        if (*p == '/') {
+            *p = '\0';
+            if (mkdir(temp, 0755) != 0 && errno != EEXIST) {
+                return 0;
+            }
+            *p = '/';
+        }
+    }
+
+    if (mkdir(temp, 0755) != 0 && errno != EEXIST) {
+        return 0;
+    }
+
+    return 1;
+}
+
 static const char* starter_template_for_path(const char* file_path) {
     if (!file_path) {
         return NULL;
@@ -417,6 +474,22 @@ static int create_file_with_optional_template(const char* file_path, int use_tem
     if (access(file_path, F_OK) == 0) {
         snprintf(response, response_size, "File already exists: %s", file_path);
         return 0;
+    }
+
+    const char* slash = strrchr(file_path, '/');
+    if (slash) {
+        char parent_dir[512] = {0};
+        size_t parent_len = (size_t)(slash - file_path);
+        if (parent_len >= sizeof(parent_dir)) {
+            snprintf(response, response_size, "Path is too long: %s", file_path);
+            return 0;
+        }
+        strncpy(parent_dir, file_path, parent_len);
+        parent_dir[parent_len] = '\0';
+        if (strlen(parent_dir) > 0 && !create_directory_recursive(parent_dir)) {
+            snprintf(response, response_size, "Failed to create parent folder %s.", parent_dir);
+            return 0;
+        }
     }
 
     FILE* file = fopen(file_path, "w");
@@ -478,6 +551,31 @@ static void execute_open_project_command(const char* command, char* response, in
         snprintf(response, response_size, "Opening project '%s' in VS Code.", project_name);
     } else {
         snprintf(response, response_size, "Project '%s' is ready, but I couldn't open VS Code automatically.", project_name);
+    }
+}
+
+static void execute_open_last_project_command(char* response, int response_size) {
+    if (!response || response_size <= 0) {
+        return;
+    }
+
+    char project_name[256] = {0};
+    if (!load_last_project_name(project_name, sizeof(project_name))) {
+        snprintf(response, response_size, "I don't have a recent project yet. Create one first.");
+        return;
+    }
+
+    struct stat st;
+    if (stat(project_name, &st) != 0 || !S_ISDIR(st.st_mode)) {
+        snprintf(response, response_size, "Last project '%s' is not available anymore.", project_name);
+        return;
+    }
+
+    int opened = open_project_in_vscode(project_name, "");
+    if (opened) {
+        snprintf(response, response_size, "Opening your last project '%s' in VS Code.", project_name);
+    } else {
+        snprintf(response, response_size, "Found last project '%s', but I couldn't open VS Code automatically.", project_name);
     }
 }
 
@@ -1279,6 +1377,70 @@ static int open_project_in_vscode(const char* project_name, const char* entry_fi
 #endif
 }
 
+static int open_file_in_vscode(const char* file_path) {
+    const char* no_gui = getenv("JARVIS_NO_GUI");
+    if (no_gui && (strcmp(no_gui, "1") == 0 || strcmp(no_gui, "true") == 0)) {
+        return 1;
+    }
+
+    if (system("command -v code >/dev/null 2>&1") == 0) {
+        char code_cmd[768];
+        snprintf(code_cmd, sizeof(code_cmd), "code -g \"%s\" >/dev/null 2>&1 &", file_path);
+        return system(code_cmd) == 0;
+    }
+
+#ifdef __APPLE__
+    char mac_cmd[768];
+    snprintf(mac_cmd, sizeof(mac_cmd),
+             "open -a \"Visual Studio Code\" \"%s\" >/dev/null 2>&1 &",
+             file_path);
+    return system(mac_cmd) == 0;
+#elif defined(__linux__)
+    char linux_cmd[768];
+    snprintf(linux_cmd, sizeof(linux_cmd), "xdg-open \"%s\" >/dev/null 2>&1 &", file_path);
+    return system(linux_cmd) == 0;
+#else
+    return 0;
+#endif
+}
+
+static int save_last_project_name(const char* project_name) {
+    if (!project_name || strlen(project_name) == 0) {
+        return 0;
+    }
+
+    FILE* file = fopen(".jarvis_last_project", "w");
+    if (!file) {
+        return 0;
+    }
+    fprintf(file, "%s\n", project_name);
+    fclose(file);
+    return 1;
+}
+
+static int load_last_project_name(char* project_name, size_t project_name_size) {
+    if (!project_name || project_name_size == 0) {
+        return 0;
+    }
+
+    FILE* file = fopen(".jarvis_last_project", "r");
+    if (!file) {
+        return 0;
+    }
+
+    if (!fgets(project_name, (int)project_name_size, file)) {
+        fclose(file);
+        return 0;
+    }
+    fclose(file);
+
+    project_name[strcspn(project_name, "\n")] = '\0';
+    if (strlen(project_name) == 0) {
+        return 0;
+    }
+    return 1;
+}
+
 static void execute_ai_project_setup_command(const char* command, char* response, int response_size) {
     char project_name[128] = {0};
     if (!extract_project_name_from_command(command, project_name, sizeof(project_name))) {
@@ -1295,6 +1457,8 @@ static void execute_ai_project_setup_command(const char* command, char* response
         snprintf(response, response_size, "I couldn't create the project: %s", error_message);
         return;
     }
+
+    save_last_project_name(project_name);
 
     int opened = open_project_in_vscode(project_name, entry_file);
     if (opened) {
@@ -1723,6 +1887,105 @@ void execute_project_management(const char* command, char* response, int respons
             }
         } else {
             snprintf(response, response_size, "Please specify a directory.");
+        }
+    }
+    else if (strstr(command, "create folder") || strstr(command, "new folder")) {
+        const char* start = strstr(command, "create folder");
+        if (start) {
+            start += strlen("create folder");
+        } else {
+            start = strstr(command, "new folder");
+            if (start) {
+                start += strlen("new folder");
+            }
+        }
+
+        if (!start) {
+            snprintf(response, response_size, "Please specify a folder name.");
+            return;
+        }
+
+        while (*start && isspace((unsigned char)*start)) {
+            start++;
+        }
+
+        char raw_folder_path[256] = {0};
+        size_t i = 0;
+        while (start[i] && !isspace((unsigned char)start[i]) && i < sizeof(raw_folder_path) - 1) {
+            raw_folder_path[i] = start[i];
+            i++;
+        }
+        raw_folder_path[i] = '\0';
+
+        char folder_path[256] = {0};
+        if (!sanitize_relative_path(raw_folder_path, folder_path, sizeof(folder_path))) {
+            snprintf(response, response_size, "Invalid folder name. Use something like src/utils or notes.");
+            return;
+        }
+
+        char full_path[512] = {0};
+        snprintf(full_path, sizeof(full_path), "%s", folder_path);
+
+        const char* project_pos = strstr(command, " in project ");
+        if (project_pos) {
+            project_pos += strlen(" in project ");
+            char project_name[128] = {0};
+            if (sanitize_relative_path(project_pos, project_name, sizeof(project_name))) {
+                snprintf(full_path, sizeof(full_path), "%s/%s", project_name, folder_path);
+            }
+        }
+
+        struct stat st;
+        if (stat(full_path, &st) == 0) {
+            if (S_ISDIR(st.st_mode)) {
+                snprintf(response, response_size, "Folder already exists: %s", full_path);
+            } else {
+                snprintf(response, response_size, "A file already exists at %s", full_path);
+            }
+            return;
+        }
+
+        if (create_directory_recursive(full_path)) {
+            snprintf(response, response_size, "Created folder %s.", full_path);
+        } else {
+            snprintf(response, response_size, "Failed to create folder %s.", full_path);
+        }
+    }
+    else if (strstr(command, "open file")) {
+        const char* start = strstr(command, "open file");
+        if (!start) {
+            snprintf(response, response_size, "Please specify a file to open.");
+            return;
+        }
+        start += strlen("open file");
+        while (*start && isspace((unsigned char)*start)) {
+            start++;
+        }
+
+        char raw_file_path[256] = {0};
+        size_t i = 0;
+        while (start[i] && !isspace((unsigned char)start[i]) && i < sizeof(raw_file_path) - 1) {
+            raw_file_path[i] = start[i];
+            i++;
+        }
+        raw_file_path[i] = '\0';
+
+        char file_path[256] = {0};
+        if (!sanitize_relative_path(raw_file_path, file_path, sizeof(file_path))) {
+            snprintf(response, response_size, "Invalid file path. Use something like src/main.c");
+            return;
+        }
+
+        struct stat st;
+        if (stat(file_path, &st) != 0 || !S_ISREG(st.st_mode)) {
+            snprintf(response, response_size, "I couldn't find file %s.", file_path);
+            return;
+        }
+
+        if (open_file_in_vscode(file_path)) {
+            snprintf(response, response_size, "Opening file %s in VS Code.", file_path);
+        } else {
+            snprintf(response, response_size, "File %s exists, but I couldn't open VS Code automatically.", file_path);
         }
     }
     else if (strstr(command, "create file") || strstr(command, "new file")) {

@@ -122,6 +122,9 @@ class JarvisUI:
         self.ideas_button = self._make_action_button(actions, "AI Ideas", self.run_ideas_mode)
         self.ideas_button.pack(side=tk.LEFT, padx=(0, 8))
 
+        self.plan_button = self._make_action_button(actions, "AI Plan", self.run_plan_mode)
+        self.plan_button.pack(side=tk.LEFT, padx=(0, 8))
+
         self.launch_button = self._make_action_button(actions, "Run Jarvis CLI", self.launch_cli_jarvis)
         self.launch_button.pack(side=tk.LEFT, padx=(0, 8))
 
@@ -210,6 +213,13 @@ class JarvisUI:
             messagebox.showinfo("Ideas", "Type or speak a topic first.")
             return
         self._submit_prompt(prompt, mode="ideas", source="You")
+
+    def run_plan_mode(self) -> None:
+        prompt = self._current_prompt()
+        if not prompt:
+            messagebox.showinfo("Plan", "Type or speak a goal first.")
+            return
+        self._submit_prompt(prompt, mode="plan", source="You")
 
     def _submit_prompt(self, prompt: str, mode: str, source: str) -> None:
         self.last_user_text = prompt

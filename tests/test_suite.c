@@ -635,6 +635,191 @@ cleanup:
     return ok;
 }
 
+static int test_open_last_project_command_path(void) {
+    char original_cwd[PATH_MAX];
+    if (!getcwd(original_cwd, sizeof(original_cwd))) {
+        perror("getcwd");
+        return 0;
+    }
+
+    char template[] = "/tmp/jarvis_open_last_project_test_XXXXXX";
+    char* temp_dir = mkdtemp(template);
+    if (!temp_dir) {
+        perror("mkdtemp");
+        return 0;
+    }
+
+    int ok = 1;
+    char project_dir[PATH_MAX];
+    snprintf(project_dir, sizeof(project_dir), "%s/demo_last", temp_dir);
+
+    if (chdir(temp_dir) != 0) {
+        perror("chdir temp_dir");
+        ok = 0;
+        goto cleanup;
+    }
+
+    setenv("JARVIS_NO_GUI", "1", 1);
+    char* create_response = process_command("create project demo_last in python");
+    if (!create_response) {
+        fprintf(stderr, "process_command(create project demo_last) returned NULL\n");
+        ok = 0;
+    } else {
+        free(create_response);
+    }
+
+    char* open_response = process_command("open last project");
+    unsetenv("JARVIS_NO_GUI");
+
+    if (!open_response) {
+        fprintf(stderr, "process_command(open last project) returned NULL\n");
+        ok = 0;
+    } else {
+        if (strstr(open_response, "Opening your last project 'demo_last'") == NULL) {
+            fprintf(stderr, "Unexpected open last project response: %s\n", open_response);
+            ok = 0;
+        }
+        free(open_response);
+    }
+
+    if (!is_directory_path(project_dir)) {
+        fprintf(stderr, "Expected project directory missing: %s\n", project_dir);
+        ok = 0;
+    }
+
+cleanup:
+    if (chdir(original_cwd) != 0) {
+        perror("chdir original_cwd");
+        ok = 0;
+    }
+
+    char entry_path[PATH_MAX];
+    char readme_path[PATH_MAX];
+    char state_path[PATH_MAX];
+    snprintf(entry_path, sizeof(entry_path), "%s/main.py", project_dir);
+    snprintf(readme_path, sizeof(readme_path), "%s/README.md", project_dir);
+    snprintf(state_path, sizeof(state_path), "%s/.jarvis_last_project", temp_dir);
+
+    remove(entry_path);
+    remove(readme_path);
+    rmdir(project_dir);
+    remove(state_path);
+    rmdir(temp_dir);
+
+    return ok;
+}
+
+static int test_create_folder_command(void) {
+    char original_cwd[PATH_MAX];
+    if (!getcwd(original_cwd, sizeof(original_cwd))) {
+        perror("getcwd");
+        return 0;
+    }
+
+    char template[] = "/tmp/jarvis_create_folder_test_XXXXXX";
+    char* temp_dir = mkdtemp(template);
+    if (!temp_dir) {
+        perror("mkdtemp");
+        return 0;
+    }
+
+    int ok = 1;
+    char folder_path[PATH_MAX];
+    snprintf(folder_path, sizeof(folder_path), "%s/src/api", temp_dir);
+
+    if (chdir(temp_dir) != 0) {
+        perror("chdir temp_dir");
+        ok = 0;
+        goto cleanup;
+    }
+
+    char* response = process_command("create folder src/api");
+    if (!response) {
+        fprintf(stderr, "process_command(create folder) returned NULL\n");
+        ok = 0;
+    } else {
+        if (strstr(response, "Created folder src/api.") == NULL) {
+            fprintf(stderr, "Unexpected create folder response: %s\n", response);
+            ok = 0;
+        }
+        free(response);
+    }
+
+    if (!is_directory_path(folder_path)) {
+        fprintf(stderr, "Expected folder missing: %s\n", folder_path);
+        ok = 0;
+    }
+
+cleanup:
+    if (chdir(original_cwd) != 0) {
+        perror("chdir original_cwd");
+        ok = 0;
+    }
+    rmdir(folder_path);
+    char src_path[PATH_MAX];
+    snprintf(src_path, sizeof(src_path), "%s/src", temp_dir);
+    rmdir(src_path);
+    rmdir(temp_dir);
+    return ok;
+}
+
+static int test_open_file_command_path(void) {
+    char original_cwd[PATH_MAX];
+    if (!getcwd(original_cwd, sizeof(original_cwd))) {
+        perror("getcwd");
+        return 0;
+    }
+
+    char template[] = "/tmp/jarvis_open_file_test_XXXXXX";
+    char* temp_dir = mkdtemp(template);
+    if (!temp_dir) {
+        perror("mkdtemp");
+        return 0;
+    }
+
+    int ok = 1;
+    char file_path[PATH_MAX];
+    snprintf(file_path, sizeof(file_path), "%s/notes.txt", temp_dir);
+    FILE* file = fopen(file_path, "w");
+    if (!file) {
+        perror("fopen notes.txt");
+        ok = 0;
+        goto cleanup;
+    }
+    fputs("test\n", file);
+    fclose(file);
+
+    if (chdir(temp_dir) != 0) {
+        perror("chdir temp_dir");
+        ok = 0;
+        goto cleanup;
+    }
+
+    setenv("JARVIS_NO_GUI", "1", 1);
+    char* response = process_command("open file notes.txt");
+    unsetenv("JARVIS_NO_GUI");
+
+    if (!response) {
+        fprintf(stderr, "process_command(open file notes.txt) returned NULL\n");
+        ok = 0;
+    } else {
+        if (strstr(response, "Opening file notes.txt in VS Code.") == NULL) {
+            fprintf(stderr, "Unexpected open file response: %s\n", response);
+            ok = 0;
+        }
+        free(response);
+    }
+
+cleanup:
+    if (chdir(original_cwd) != 0) {
+        perror("chdir original_cwd");
+        ok = 0;
+    }
+    remove(file_path);
+    rmdir(temp_dir);
+    return ok;
+}
+
 int main(void) {
     int total = 0;
     int passed = 0;
@@ -661,6 +846,9 @@ int main(void) {
     RUN_TEST(test_open_xcode_routes_correctly);
     RUN_TEST(test_ai_project_bootstrap_python);
     RUN_TEST(test_open_project_command_path);
+    RUN_TEST(test_open_last_project_command_path);
+    RUN_TEST(test_create_folder_command);
+    RUN_TEST(test_open_file_command_path);
     RUN_TEST(test_create_file_with_template);
     RUN_TEST(test_generate_code_file_requires_prompt);
     RUN_TEST(test_make_a_project_phrase_routes_to_project_creation);

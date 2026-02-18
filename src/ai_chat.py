@@ -32,6 +32,7 @@ MODE_PROMPTS: Dict[str, str] = {
     "summary": "Summarize the request in 3 short bullet points with practical focus.",
     "ideas": "Give 5 practical ideas as short bullet points.",
     "code": "Return only production-ready code for the request. Do not include markdown fences.",
+    "plan": "Create a clear step-by-step implementation plan with concise numbered steps.",
 }
 
 
@@ -173,7 +174,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="JARVIS AI chat bridge")
     parser.add_argument(
         "--mode",
-        choices=["chat", "summary", "ideas", "code"],
+        choices=["chat", "summary", "ideas", "code", "plan"],
         default="chat",
         help="AI response mode",
     )
