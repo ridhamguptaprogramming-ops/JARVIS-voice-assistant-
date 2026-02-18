@@ -82,6 +82,7 @@ make run-ui
 - **Weather**: "What's the weather?" - JARVIS will explain weather access limitations
 - **Shutdown**: "Exit", "Quit", "Shutdown" - Exit the application
 - **AI Chat**: "Ask AI [question]", "Explain [topic]", "Write [text]" - Generates intelligent responses
+- **AI Operating Modes**: "Set mode developer", "Set mode automation", "Set mode ceo", "Set mode research", "Set mode security"
 - **AI Code File**: "Generate code file app.py for flask auth API" - Writes generated code directly to file
 - **AI Plan Mode**: "Plan a microservice architecture for ecommerce" - Returns implementation steps
 - **AI Summary**: "Summarize [topic/text]" - Generates concise summary points

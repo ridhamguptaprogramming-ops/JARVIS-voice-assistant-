@@ -820,6 +820,69 @@ cleanup:
     return ok;
 }
 
+static int test_set_mode_developer_persists_persona(void) {
+    char original_cwd[PATH_MAX];
+    if (!getcwd(original_cwd, sizeof(original_cwd))) {
+        perror("getcwd");
+        return 0;
+    }
+
+    char template[] = "/tmp/jarvis_mode_switch_test_XXXXXX";
+    char* temp_dir = mkdtemp(template);
+    if (!temp_dir) {
+        perror("mkdtemp");
+        return 0;
+    }
+
+    int ok = 1;
+    char src_dir[PATH_MAX];
+    char persona_path[PATH_MAX];
+    snprintf(src_dir, sizeof(src_dir), "%s/src", temp_dir);
+    snprintf(persona_path, sizeof(persona_path), "%s/src/persona_mode.txt", temp_dir);
+
+    if (mkdir(src_dir, 0700) != 0) {
+        perror("mkdir src");
+        ok = 0;
+        goto cleanup;
+    }
+
+    if (chdir(temp_dir) != 0) {
+        perror("chdir temp_dir");
+        ok = 0;
+        goto cleanup;
+    }
+
+    char* response = process_command("set mode developer");
+    if (!response) {
+        fprintf(stderr, "process_command(set mode developer) returned NULL\n");
+        ok = 0;
+    } else {
+        if (strstr(response, "switched to developer mode") == NULL) {
+            fprintf(stderr, "Unexpected set-mode response: %s\n", response);
+            ok = 0;
+        }
+        free(response);
+    }
+
+    if (access(persona_path, F_OK) != 0) {
+        fprintf(stderr, "Expected persona file missing: %s\n", persona_path);
+        ok = 0;
+    } else if (!file_contains(persona_path, "developer")) {
+        fprintf(stderr, "Persona mode file does not contain developer mode\n");
+        ok = 0;
+    }
+
+cleanup:
+    if (chdir(original_cwd) != 0) {
+        perror("chdir original_cwd");
+        ok = 0;
+    }
+    remove(persona_path);
+    rmdir(src_dir);
+    rmdir(temp_dir);
+    return ok;
+}
+
 int main(void) {
     int total = 0;
     int passed = 0;
@@ -849,6 +912,7 @@ int main(void) {
     RUN_TEST(test_open_last_project_command_path);
     RUN_TEST(test_create_folder_command);
     RUN_TEST(test_open_file_command_path);
+    RUN_TEST(test_set_mode_developer_persists_persona);
     RUN_TEST(test_create_file_with_template);
     RUN_TEST(test_generate_code_file_requires_prompt);
     RUN_TEST(test_make_a_project_phrase_routes_to_project_creation);

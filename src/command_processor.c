@@ -254,12 +254,22 @@ char* process_command(const char* command) {
              command_contains(lower_cmd, "change personality") ||
              command_contains(lower_cmd, "be sarcastic") ||
              command_contains(lower_cmd, "be pirate") ||
-             command_contains(lower_cmd, "be polite")) {
+             command_contains(lower_cmd, "be polite") ||
+             command_contains(lower_cmd, "developer mode") ||
+             command_contains(lower_cmd, "automation mode") ||
+             command_contains(lower_cmd, "ceo mode") ||
+             command_contains(lower_cmd, "research mode") ||
+             command_contains(lower_cmd, "security mode")) {
         
         const char* mode = "default";
         if (command_contains(lower_cmd, "sarcastic")) mode = "sarcastic";
         else if (command_contains(lower_cmd, "pirate")) mode = "pirate";
         else if (command_contains(lower_cmd, "formal") || command_contains(lower_cmd, "polite")) mode = "formal";
+        else if (command_contains(lower_cmd, "developer")) mode = "developer";
+        else if (command_contains(lower_cmd, "automation")) mode = "automation";
+        else if (command_contains(lower_cmd, "ceo")) mode = "ceo";
+        else if (command_contains(lower_cmd, "research")) mode = "research";
+        else if (command_contains(lower_cmd, "security")) mode = "security";
         
         FILE* f = fopen("src/persona_mode.txt", "w");
         if (f) {
