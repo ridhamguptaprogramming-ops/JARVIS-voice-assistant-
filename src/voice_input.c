@@ -3,6 +3,18 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <ctype.h>
+
+static int env_flag_enabled(const char* value) {
+    if (!value) {
+        return 0;
+    }
+    if (strcmp(value, "1") == 0 || strcmp(value, "true") == 0 || strcmp(value, "TRUE") == 0 ||
+        strcmp(value, "yes") == 0 || strcmp(value, "YES") == 0 || strcmp(value, "on") == 0) {
+        return 1;
+    }
+    return 0;
+}
 
 /**
  * Captures voice input from the microphone using Python speech recognition
@@ -11,23 +23,7 @@ char* capture_voice_input(void) {
     printf("\n[JARVIS] 🎤 Listening... (speak now)\n");
     fflush(stdout);
 
-    // First verify speaker (who's speaking) - use MFCC recognizer
-    FILE* spipe = popen("python3 src/speaker_recognizer.py 2>/dev/null", "r");
-    char speaker[128] = "";
-    if (spipe) {
-        if (fgets(speaker, sizeof(speaker), spipe) != NULL) {
-            speaker[strcspn(speaker, "\n")] = 0;
-        }
-        pclose(spipe);
-    }
-
-    if (speaker[0] != '\0' && strcmp(speaker, "UNKNOWN") != 0) {
-        printf("[JARVIS] Verified speaker: %s\n", speaker);
-    } else if (speaker[0] != '\0') {
-        printf("[JARVIS] Speaker not verified (unknown)\n");
-    }
-
-    // Then run speech-to-text
+    // Prioritize fast speech-to-text for smoother voice chat.
     FILE* pipe = popen("python3 src/speech_recognizer.py 2>/dev/null", "r");
 
     // We'll return a combined string: "SPEAKER|TEXT" where SPEAKER may be UNKNOWN or KEYBOARD
@@ -46,12 +42,32 @@ char* capture_voice_input(void) {
         pclose(pipe);
 
         if (strlen(text_buf) > 0) {
-            const char* sp = (speaker[0] != '\0') ? speaker : "UNKNOWN";
-            snprintf(combined, 768, "%s|%s", sp, text_buf);
-            if (strcmp(sp, "UNKNOWN") != 0) {
-                printf("[JARVIS] (%s) You said: \"%s\"\n", sp, text_buf);
+            char speaker[128] = "UNKNOWN";
+
+            // Optional: enable speaker verification only when requested.
+            const char* verify_speaker = getenv("JARVIS_VERIFY_SPEAKER");
+            if (env_flag_enabled(verify_speaker)) {
+                FILE* spipe = popen("python3 src/speaker_recognizer.py 2>/dev/null", "r");
+                if (spipe) {
+                    if (fgets(speaker, sizeof(speaker), spipe) != NULL) {
+                        speaker[strcspn(speaker, "\n")] = 0;
+                    }
+                    pclose(spipe);
+                }
+            }
+
+            if (speaker[0] == '\0') {
+                strcpy(speaker, "UNKNOWN");
+            }
+
+            snprintf(combined, 768, "%s|%s", speaker, text_buf);
+            if (strcmp(speaker, "UNKNOWN") != 0) {
+                printf("[JARVIS] (%s) You said: \"%s\"\n", speaker, text_buf);
             } else {
                 printf("[JARVIS] You said: \"%s\"\n", text_buf);
+                if (env_flag_enabled(verify_speaker)) {
+                    printf("[JARVIS] Speaker not verified (unknown)\n");
+                }
             }
             return combined;
         }

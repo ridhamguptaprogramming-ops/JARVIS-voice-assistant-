@@ -5,6 +5,7 @@ A sophisticated voice-controlled assistant written in C, inspired by the AI from
 ## Features
 
 - **Voice Input**: Capture and process voice commands (with fallback to text input)
+- **Enhanced Microphone Handling**: Ambient-noise calibration, retries, and selectable microphone device
 - **Voice Output**: Text-to-speech responses using system audio
 - **Command Processing**: Natural language command recognition and execution
 - **C Workflow Automation**: Build, rebuild, test, and warning checks via voice
@@ -12,7 +13,8 @@ A sophisticated voice-controlled assistant written in C, inspired by the AI from
 - **AI-Style Project Bootstrap**: Create a new project, generate starter code, and open VS Code automatically
 - **Daily Dev Routines**: Git status/pull/push and morning workflow summaries
 - **Modular Architecture**: Separate modules for input, output, and command processing
-- **Generative AI**: Integration with Gemini API for intelligent responses (See [AI_UPGRADE.md](AI_UPGRADE.md))
+- **Generative AI**: Chat plus two built-in AI features (`summary` and `ideas`) (See [AI_UPGRADE.md](AI_UPGRADE.md))
+- **Desktop UI**: Dedicated JARVIS AI window with text + voice chat controls
 
 ## System Requirements
 
@@ -56,6 +58,11 @@ make clean
 ./jarvis
 ```
 
+### Start Desktop UI Only
+```bash
+make run-ui
+```
+
 ### Available Commands
 
 - **Time**: "What time is it?" - JARVIS will tell you the current time
@@ -73,6 +80,9 @@ make clean
 - **Weather**: "What's the weather?" - JARVIS will explain weather access limitations
 - **Shutdown**: "Exit", "Quit", "Shutdown" - Exit the application
 - **AI Chat**: "Ask AI [question]", "Explain [topic]", "Write [text]" - Generates intelligent responses
+- **AI Summary**: "Summarize [topic/text]" - Generates concise summary points
+- **AI Ideas**: "Give ideas about [topic]" / "Brainstorm [topic]" - Generates practical idea list
+- **Open UI**: "Open Jarvis UI" / "Open AI window" - Opens the desktop UI
 
 For full developer workflow usage, see [SEARCH_GUIDE.md](SEARCH_GUIDE.md).
 
@@ -189,6 +199,7 @@ else if (command_contains(lower_cmd, "your keyword")) {
 
 ## Version History
 
+- **v1.2.0** - Added desktop UI window, improved microphone reliability, and new AI summary/ideas modes
 - **v1.0.0** - Initial release with basic voice I/O and command processing
 - **v1.1.0** - Added Generative AI capabilities via Python bridge
 

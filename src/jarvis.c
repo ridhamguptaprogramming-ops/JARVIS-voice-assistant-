@@ -8,6 +8,37 @@
 #include <time.h>
 #include <ctype.h>
 
+static int env_flag_enabled(const char* value) {
+    if (!value) {
+        return 0;
+    }
+    return strcmp(value, "1") == 0 ||
+           strcmp(value, "true") == 0 ||
+           strcmp(value, "TRUE") == 0 ||
+           strcmp(value, "yes") == 0 ||
+           strcmp(value, "YES") == 0 ||
+           strcmp(value, "on") == 0;
+}
+
+static void launch_jarvis_ui_if_enabled(void) {
+    const char* disable_ui = getenv("JARVIS_DISABLE_UI");
+    if (env_flag_enabled(disable_ui)) {
+        return;
+    }
+
+    const char* no_gui = getenv("JARVIS_NO_GUI");
+    if (env_flag_enabled(no_gui)) {
+        return;
+    }
+
+    int status = system("python3 src/jarvis_ui.py >/dev/null 2>&1 &");
+    if (status == 0) {
+        printf("[JARVIS] UI window launched.\n");
+    } else {
+        printf("[JARVIS] UI window was not launched (GUI may be unavailable).\n");
+    }
+}
+
 /**
  * Gets the current time as a formatted string
  */
@@ -55,6 +86,8 @@ int jarvis_init(void) {
         fprintf(stderr, "[JARVIS] Error: Failed to initialize voice output\n");
         return 0;
     }
+
+    launch_jarvis_ui_if_enabled();
     // Notify system that JARVIS is online
     notify_desktop("JARVIS", "JARVIS is now online") ;
     
@@ -66,6 +99,7 @@ int jarvis_init(void) {
  */
 void jarvis_run(void) {
     int running = 1;
+    int strict_speaker_mode = env_flag_enabled(getenv("JARVIS_STRICT_SPEAKER"));
     
     speak("JARVIS is now online. How may I assist you?");
     
@@ -102,8 +136,8 @@ void jarvis_run(void) {
             strcpy(speaker, "UNKNOWN");
         }
 
-        // If speaker is UNKNOWN, ask for confirmation (try voice, then keyboard)
-        if (strcmp(speaker, "UNKNOWN") == 0) {
+        // If speaker is unknown, only force confirmation in strict mode.
+        if (strict_speaker_mode && strcmp(speaker, "UNKNOWN") == 0) {
             printf("[JARVIS] Speaker not recognized. Asking for confirmation to execute the command...\n");
 
             int confirmed = 0;
@@ -142,6 +176,8 @@ void jarvis_run(void) {
             }
 
             printf("[JARVIS] Confirmation received from unverified source — proceeding with caution.\n");
+        } else if (strcmp(speaker, "UNKNOWN") == 0) {
+            strcpy(speaker, "GUEST");
         }
 
         if (strlen(command_text) == 0) {

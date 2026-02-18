@@ -48,6 +48,11 @@ run-gui: $(TARGET)
 	@echo "Launching JARVIS in a new terminal window..."
 	@bash scripts/run_jarvis_gui.sh
 
+# Run JARVIS desktop UI directly
+run-ui:
+	@echo "Launching JARVIS desktop UI..."
+	@python3 src/jarvis_ui.py
+
 # Build and run C tests
 test: $(TEST_TARGET)
 	@echo "Running C test suite..."
@@ -108,4 +113,4 @@ setup:
 	@echo "Setup complete! JARVIS now has microphone support."
 	@echo "You can now run: make run"
 
-.PHONY: all run test debug clean rebuild help setup
+.PHONY: all run run-gui run-ui test debug clean rebuild help setup
