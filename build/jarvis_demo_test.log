@@ -1,0 +1,150 @@
+[JARVIS] Warning: Text-to-speech not available
+
+╔════════════════════════════════════════╗
+║          JARVIS Voice Assistant        ║
+║              v1.0.0                      ║
+╚════════════════════════════════════════╝
+
+[JARVIS] Initializing systems...
+[JARVIS] Loading voice recognition module...
+[JARVIS] Loading voice synthesis module...
+[JARVIS] Loading command processor...
+[JARVIS] All systems online. Ready to assist.
+
+[JARVIS] Voice output system initialized
+[JARVIS] Speaking: JARVIS is now online. How may I assist you?
+
+═══════════════════════════════════════
+[JARVIS] Ready for your command
+═══════════════════════════════════════
+Try: hello, time, joke, help, search for [query], or quit
+
+[JARVIS] 🎤 Listening... (speak now)
+[JARVIS] Microphone not available or empty input. Using keyboard input instead.
+[JARVIS] Type your command: [JARVIS] Warning: Text-to-speech not available
+
+[JARVIS] Processing: 'hello jarvis' (from KEYBOARD)
+[JARVIS] Hello sir. I am JARVIS. How may I assist you today?
+[JARVIS] Speaking: Hello sir. I am JARVIS. How may I assist you today?
+
+═══════════════════════════════════════
+[JARVIS] Ready for your command
+═══════════════════════════════════════
+Try: hello, time, joke, help, search for [query], or quit
+
+[JARVIS] 🎤 Listening... (speak now)
+[JARVIS] Microphone not available or empty input. Using keyboard input instead.
+[JARVIS] Type your command: [JARVIS] Warning: Text-to-speech not available
+
+[JARVIS] Processing: 'make a project jarvis auto demo in python language' (from KEYBOARD)
+[JARVIS] Created python project 'jarvis_auto_demo' with main.py and opened it in VS Code. Ready for coding.
+[JARVIS] Speaking: Created python project 'jarvis_auto_demo' with main.py and opened it in VS Code. Ready for coding.
+
+═══════════════════════════════════════
+[JARVIS] Ready for your command
+═══════════════════════════════════════
+Try: hello, time, joke, help, search for [query], or quit
+
+[JARVIS] 🎤 Listening... (speak now)
+[JARVIS] Microphone not available or empty input. Using keyboard input instead.
+[JARVIS] Type your command: [JARVIS] Warning: Text-to-speech not available
+
+[JARVIS] Processing: 'open last project' (from KEYBOARD)
+[JARVIS] Opening your last project 'jarvis_auto_demo' in VS Code.
+[JARVIS] Speaking: Opening your last project 'jarvis_auto_demo' in VS Code.
+
+═══════════════════════════════════════
+[JARVIS] Ready for your command
+═══════════════════════════════════════
+Try: hello, time, joke, help, search for [query], or quit
+
+[JARVIS] 🎤 Listening... (speak now)
+[JARVIS] Microphone not available or empty input. Using keyboard input instead.
+[JARVIS] Type your command: [JARVIS] Warning: Text-to-speech not available
+
+[JARVIS] Processing: 'create folder src/api in project jarvis_auto_demo' (from KEYBOARD)
+[JARVIS] Created folder jarvis_auto_demo/src/api.
+[JARVIS] Speaking: Created folder jarvis_auto_demo/src/api.
+
+═══════════════════════════════════════
+[JARVIS] Ready for your command
+═══════════════════════════════════════
+Try: hello, time, joke, help, search for [query], or quit
+
+[JARVIS] 🎤 Listening... (speak now)
+[JARVIS] Microphone not available or empty input. Using keyboard input instead.
+[JARVIS] Type your command: [JARVIS] Warning: Text-to-speech not available
+
+[JARVIS] Processing: 'create file src/api/routes.py in project jarvis_auto_demo with template' (from KEYBOARD)
+[JARVIS] Created jarvis_auto_demo/src/api/routes.py with starter code.
+[JARVIS] Speaking: Created jarvis_auto_demo/src/api/routes.py with starter code.
+
+═══════════════════════════════════════
+[JARVIS] Ready for your command
+═══════════════════════════════════════
+Try: hello, time, joke, help, search for [query], or quit
+
+[JARVIS] 🎤 Listening... (speak now)
+[JARVIS] Microphone not available or empty input. Using keyboard input instead.
+[JARVIS] Type your command: [JARVIS] Warning: Text-to-speech not available
+
+[JARVIS] Processing: 'open file jarvis_auto_demo/main.py' (from KEYBOARD)
+[JARVIS] Opening file jarvis_auto_demo/main.py in VS Code.
+[JARVIS] Speaking: Opening file jarvis_auto_demo/main.py in VS Code.
+
+═══════════════════════════════════════
+[JARVIS] Ready for your command
+═══════════════════════════════════════
+Try: hello, time, joke, help, search for [query], or quit
+
+[JARVIS] 🎤 Listening... (speak now)
+[JARVIS] Microphone not available or empty input. Using keyboard input instead.
+[JARVIS] Type your command: [JARVIS] Warning: Text-to-speech not available
+
+[JARVIS] Processing: 'search karo instagram' (from KEYBOARD)
+[JARVIS] Search results for 'instagram': I found relevant information online. The query has been processed. Please check online resources for detailed results.
+[JARVIS] Speaking: Search results for 'instagram': I found relevant information online. The query has been processed. Please check online resources for detailed results.
+
+═══════════════════════════════════════
+[JARVIS] Ready for your command
+═══════════════════════════════════════
+Try: hello, time, joke, help, search for [query], or quit
+
+[JARVIS] 🎤 Listening... (speak now)
+[JARVIS] Microphone not available or empty input. Using keyboard input instead.
+[JARVIS] Type your command: [JARVIS] Warning: Text-to-speech not available
+
+[JARVIS] Processing: 'set mode developer' (from KEYBOARD)
+[JARVIS] I have switched to developer mode.
+[JARVIS] Speaking: I have switched to developer mode.
+
+═══════════════════════════════════════
+[JARVIS] Ready for your command
+═══════════════════════════════════════
+Try: hello, time, joke, help, search for [query], or quit
+
+[JARVIS] 🎤 Listening... (speak now)
+[JARVIS] Microphone not available or empty input. Using keyboard input instead.
+[JARVIS] Type your command: [JARVIS] Warning: Text-to-speech not available
+
+[JARVIS] Processing: 'help' (from KEYBOARD)
+[JARVIS] I can handle daily C development tasks: build project, run tests, check warnings, find symbol <name>, create c module <name>, create project <name> in python, open project <name> in VS Code, open last project, create folder <name>, open file <path>, create code file <name>, git status, AI summary, AI ideas, AI plan mode, and web search.
+[JARVIS] Speaking: I can handle daily C development tasks: build project, run tests, check warnings, find symbol <name>, create c module <name>, create project <name> in python, open project <name> in VS Code, open last project, create folder <name>, open file <path>, create code file <name>, git status, AI summary, AI ideas, AI plan mode, and web search.
+
+═══════════════════════════════════════
+[JARVIS] Ready for your command
+═══════════════════════════════════════
+Try: hello, time, joke, help, search for [query], or quit
+
+[JARVIS] 🎤 Listening... (speak now)
+[JARVIS] Microphone not available or empty input. Using keyboard input instead.
+[JARVIS] Type your command: [JARVIS] Warning: Text-to-speech not available
+
+[JARVIS] Processing: 'quit' (from KEYBOARD)
+[JARVIS] Shutting down. Goodbye sir.
+[JARVIS] Speaking: Shutting down. Goodbye sir.
+
+[JARVIS] Shutting down...
+[JARVIS] All systems offline.
+[JARVIS] Goodbye sir.
+

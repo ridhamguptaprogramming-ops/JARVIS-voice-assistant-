@@ -4,6 +4,95 @@
 #include <string.h>
 #include <ctype.h>
 
+static void trim_whitespace_inplace(char* text) {
+    if (!text) return;
+
+    size_t start = 0;
+    size_t len = strlen(text);
+    while (start < len && isspace((unsigned char)text[start])) {
+        start++;
+    }
+
+    if (start > 0) {
+        memmove(text, text + start, len - start + 1);
+        len = strlen(text);
+    }
+
+    while (len > 0 && isspace((unsigned char)text[len - 1])) {
+        text[len - 1] = '\0';
+        len--;
+    }
+}
+
+static const char* normalize_search_query(const char* query) {
+    static char cleaned[512];
+    if (!query) {
+        cleaned[0] = '\0';
+        return cleaned;
+    }
+
+    strncpy(cleaned, query, sizeof(cleaned) - 1);
+    cleaned[sizeof(cleaned) - 1] = '\0';
+    trim_whitespace_inplace(cleaned);
+
+    const char* fillers[] = {
+        "karo ",
+        "kar do ",
+        "kardo ",
+        "please ",
+        "jarvis ",
+        "zara ",
+        "bajake ",
+        "baja ke "
+    };
+
+    int changed = 1;
+    while (changed && cleaned[0] != '\0') {
+        changed = 0;
+        char lowered[512];
+        strncpy(lowered, cleaned, sizeof(lowered) - 1);
+        lowered[sizeof(lowered) - 1] = '\0';
+        for (size_t i = 0; lowered[i]; i++) {
+            lowered[i] = (char)tolower((unsigned char)lowered[i]);
+        }
+
+        for (size_t i = 0; i < sizeof(fillers) / sizeof(fillers[0]); i++) {
+            size_t f_len = strlen(fillers[i]);
+            if (strncmp(lowered, fillers[i], f_len) == 0) {
+                memmove(cleaned, cleaned + f_len, strlen(cleaned + f_len) + 1);
+                trim_whitespace_inplace(cleaned);
+                changed = 1;
+                break;
+            }
+        }
+    }
+
+    return cleaned;
+}
+
+static void url_encode_query(const char* input, char* output, size_t output_size) {
+    if (!input || !output || output_size == 0) {
+        return;
+    }
+
+    size_t out = 0;
+    for (size_t i = 0; input[i] != '\0' && out < output_size - 1; i++) {
+        unsigned char ch = (unsigned char)input[i];
+        if (isalnum(ch) || ch == '-' || ch == '_' || ch == '.' || ch == '~') {
+            output[out++] = (char)ch;
+        } else if (ch == ' ') {
+            output[out++] = '+';
+        } else {
+            if (out + 3 >= output_size) {
+                break;
+            }
+            snprintf(output + out, output_size - out, "%%%02X", ch);
+            out += 3;
+        }
+    }
+    output[out] = '\0';
+}
+
 /**
  * Performs a web search using command-line tools
  */
@@ -16,12 +105,15 @@ char* web_search(const char* query) {
     if (!result) return NULL;
     
     // Simulate web search with curl and DuckDuckGo
-    char command[512];
+    char command[768];
+    char encoded_query[512];
     FILE* fp;
+
+    url_encode_query(query, encoded_query, sizeof(encoded_query));
     
     snprintf(command, sizeof(command), 
             "curl -s 'https://duckduckgo.com/?q=%s&format=json' 2>/dev/null | head -c 500", 
-            query);
+            encoded_query);
     
     fp = popen(command, "r");
     if (fp) {
@@ -133,6 +225,8 @@ const char* extract_search_query(const char* input) {
     
     // Skip common search keywords
     const char* keywords[] = {
+        "search karo ",
+        "search kar ",
         "search for ",
         "search ",
         "find ",
@@ -159,11 +253,12 @@ const char* extract_search_query(const char* input) {
         const char* found = strstr(lower_input, keywords[i]);
         if (found) {
             // Return pointer to original input after the keyword
-            return input + (found - lower_input) + strlen(keywords[i]);
+            const char* raw_query = input + (found - lower_input) + strlen(keywords[i]);
+            return normalize_search_query(raw_query);
         }
     }
     
-    return input; // Return whole input if no keyword found
+    return normalize_search_query(input); // Return cleaned input if no keyword found
 }
 
 /**

@@ -11,7 +11,7 @@ import hashlib
 from datetime import datetime
 
 try:
-    from speech_recognition import Recognizer, Microphone, UnknownValueError, RequestError
+    from speech_recognition import Recognizer, Microphone, UnknownValueError, RequestError # type: ignore
 except ImportError:
     print("ERROR: speech_recognition library not installed", file=sys.stderr)
     print("Install with: pip3 install SpeechRecognition pydub", file=sys.stderr)

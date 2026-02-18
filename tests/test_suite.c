@@ -78,6 +78,23 @@ static int test_extract_search_query(void) {
     return 1;
 }
 
+static int test_extract_search_query_hinglish(void) {
+    const char* input = "search karo instagram";
+    const char* query = extract_search_query(input);
+
+    if (!query) {
+        fprintf(stderr, "extract_search_query returned NULL for hinglish input\n");
+        return 0;
+    }
+
+    if (strcmp(query, "instagram") != 0) {
+        fprintf(stderr, "Unexpected hinglish query extraction: %s\n", query);
+        return 0;
+    }
+
+    return 1;
+}
+
 static int test_process_help(void) {
     char* response = process_command("help");
     if (!response) {
@@ -901,6 +918,7 @@ int main(void) {
     RUN_TEST(test_to_lowercase);
     RUN_TEST(test_command_contains);
     RUN_TEST(test_extract_search_query);
+    RUN_TEST(test_extract_search_query_hinglish);
     RUN_TEST(test_process_help);
     RUN_TEST(test_daily_status_non_git_dir);
     RUN_TEST(test_find_function_path);

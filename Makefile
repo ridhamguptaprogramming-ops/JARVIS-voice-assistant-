@@ -58,6 +58,11 @@ test: $(TEST_TARGET)
 	@echo "Running C test suite..."
 	@./$(TEST_TARGET)
 
+# Run automated Jarvis feature demo-test
+demo-test: $(TARGET)
+	@echo "Running automated JARVIS demo-test..."
+	@bash demo.sh
+
 $(TEST_TARGET): $(TEST_SOURCES) $(SRC_DIR)/command_processor.c $(SRC_DIR)/search.c include/command_processor.h include/search.h
 	@mkdir -p $(TEST_BUILD_DIR)
 	@echo "Compiling test suite..."
@@ -113,4 +118,4 @@ setup:
 	@echo "Setup complete! JARVIS now has microphone support."
 	@echo "You can now run: make run"
 
-.PHONY: all run run-gui run-ui test debug clean rebuild help setup
+.PHONY: all run run-gui run-ui test demo-test debug clean rebuild help setup

@@ -6,7 +6,7 @@ import sys
 from typing import Dict, List, Optional
 
 try:
-    import google.generativeai as genai
+    import google.generativeai as genai # type: ignore
 except ImportError:
     genai = None
 
