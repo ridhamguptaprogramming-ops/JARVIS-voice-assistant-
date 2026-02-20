@@ -15,6 +15,7 @@ A sophisticated voice-controlled assistant written in C, inspired by the AI from
 - **Modular Architecture**: Separate modules for input, output, and command processing
 - **Generative AI**: Chat plus two built-in AI features (`summary` and `ideas`) (See [AI_UPGRADE.md](AI_UPGRADE.md))
 - **Desktop UI**: Dedicated JARVIS AI window with text + voice chat controls
+- **Browser UI**: Direct HTML webpage UI with chat, voice input, and quick actions
 
 ## System Requirements
 
@@ -61,6 +62,11 @@ make clean
 ### Start Desktop UI Only
 ```bash
 make run-ui
+```
+
+### Start Browser UI (Direct HTML)
+```bash
+make run-web-ui
 ```
 
 ### Available Commands

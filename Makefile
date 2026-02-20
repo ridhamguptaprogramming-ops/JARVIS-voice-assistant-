@@ -53,6 +53,11 @@ run-ui:
 	@echo "Launching JARVIS desktop UI..."
 	@python3 src/jarvis_ui.py
 
+# Run JARVIS browser UI directly from HTML
+run-web-ui:
+	@echo "Launching JARVIS browser UI..."
+	@bash scripts/run_jarvis_web_ui.sh
+
 # Build and run C tests
 test: $(TEST_TARGET)
 	@echo "Running C test suite..."
@@ -104,6 +109,9 @@ help:
 	@echo "Available targets:"
 	@echo "  make              - Build the project"
 	@echo "  make run          - Build and run JARVIS"
+	@echo "  make run-gui      - Launch JARVIS CLI in a new terminal window"
+	@echo "  make run-ui       - Launch desktop Tkinter UI"
+	@echo "  make run-web-ui   - Open browser HTML UI directly"
 	@echo "  make test         - Build and run C test suite"
 	@echo "  make debug        - Build with debug symbols"
 	@echo "  make clean        - Remove build artifacts"
@@ -118,4 +126,4 @@ setup:
 	@echo "Setup complete! JARVIS now has microphone support."
 	@echo "You can now run: make run"
 
-.PHONY: all run run-gui run-ui test demo-test debug clean rebuild help setup
+.PHONY: all run run-gui run-ui run-web-ui test demo-test debug clean rebuild help setup
