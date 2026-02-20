@@ -46,6 +46,8 @@ static int extract_codegen_prompt(const char* command, char* prompt, size_t prom
 static void strip_markdown_code_fences(char* text);
 static void execute_ai_code_file_command(const char* command, char* response, int response_size);
 static void launch_jarvis_ui_command(char* response, int response_size);
+static int is_ai_brain_request(const char* command);
+static void execute_ai_brain_command(const char* command, char* response, int response_size);
 
 /**
  * Processes a voice command and executes appropriate action
@@ -85,7 +87,7 @@ char* process_command(const char* command) {
                         "find symbol <name>, create c module <name>, create project <name> in python, "
                         "open project <name> in VS Code, open last project, create folder <name>, "
                         "open file <path>, create code file <name>, git status, AI summary, AI ideas, "
-                        "AI plan mode, and web search.");
+                        "AI plan mode, AI task engine (website, app, legal, problem solving), and web search.");
     }
     // System info command
     else if (command_contains(lower_cmd, "system info") ||
@@ -156,6 +158,10 @@ char* process_command(const char* command) {
              command_contains(lower_cmd, "list todo") ||
              command_contains(lower_cmd, "fixme")) {
         execute_code_navigation_command(lower_cmd, response, response_size);
+    }
+    // AI Brain task orchestration
+    else if (is_ai_brain_request(lower_cmd)) {
+        execute_ai_brain_command(command, response, response_size);
     }
     // Daily workflow automation
     else if (command_contains(lower_cmd, "daily workflow") ||
@@ -306,7 +312,8 @@ char* process_command(const char* command) {
         snprintf(response, response_size, "I didn't understand '%s'. Try: build project, run tests, "
                 "check warnings, find function <name>, create project <name>, open project <name>, "
                 "open last project, create folder <name>, open file <path>, create file <name>, "
-                "generate code file <name> for <task>, search for <topic>, or quit.", command);
+                "generate code file <name> for <task>, make website <idea>, build app <idea>, "
+                "draft court/legal document <topic>, solve problem <topic>, search for <topic>, or quit.", command);
     }
 
     free(lower_cmd);
@@ -662,6 +669,109 @@ static void run_ai_mode_command(const char* command, const char* mode, char* res
     }
 
     pclose(fp);
+}
+
+static int is_ai_brain_request(const char* command) {
+    if (!command) {
+        return 0;
+    }
+
+    if (strstr(command, "generate code file") ||
+        strstr(command, "create code file") ||
+        strstr(command, "write code file")) {
+        return 0;
+    }
+
+    int has_creation_verb = contains_word(command, "create") ||
+                            contains_word(command, "make") ||
+                            contains_word(command, "build") ||
+                            contains_word(command, "generate") ||
+                            contains_word(command, "draft") ||
+                            contains_word(command, "design");
+
+    int website_task = strstr(command, "website") != NULL ||
+                       strstr(command, "web app") != NULL ||
+                       strstr(command, "webpage") != NULL ||
+                       strstr(command, "landing page") != NULL ||
+                       strstr(command, "frontend") != NULL;
+
+    int app_task = contains_word(command, "app") ||
+                   contains_word(command, "application") ||
+                   contains_word(command, "software");
+
+    int legal_task = strstr(command, "court") != NULL ||
+                     strstr(command, "legal") != NULL ||
+                     strstr(command, "contract") != NULL ||
+                     strstr(command, "agreement") != NULL ||
+                     strstr(command, "notice") != NULL ||
+                     strstr(command, "case") != NULL;
+
+    int problem_task = strstr(command, "solve problem") != NULL ||
+                       strstr(command, "solve this") != NULL ||
+                       strstr(command, "problem solving") != NULL ||
+                       strstr(command, "root cause") != NULL ||
+                       strstr(command, "debug") != NULL ||
+                       strstr(command, "fix issue") != NULL;
+
+    if (contains_word(command, "ai") && contains_word(command, "task")) {
+        return 1;
+    }
+
+    if (legal_task || problem_task) {
+        return 1;
+    }
+
+    if (has_creation_verb && (website_task || app_task)) {
+        return 1;
+    }
+
+    return 0;
+}
+
+static void execute_ai_brain_command(const char* command, char* response, int response_size) {
+    if (!command || !response || response_size <= 0) {
+        return;
+    }
+
+    printf("[JARVIS] AI brain orchestrator engaged...\n");
+
+    char safe_prompt[768];
+    sanitize_prompt_for_shell(command, safe_prompt, sizeof(safe_prompt));
+
+    if (strlen(safe_prompt) == 0) {
+        snprintf(response, response_size, "Please provide a task for the AI brain.");
+        return;
+    }
+
+    char sys_cmd[1200];
+    snprintf(sys_cmd, sizeof(sys_cmd), "python3 src/ai_brain.py --request \"%s\"", safe_prompt);
+
+    FILE* fp = popen(sys_cmd, "r");
+    if (!fp) {
+        snprintf(response, response_size, "I cannot access the AI brain orchestrator right now.");
+        return;
+    }
+
+    response[0] = '\0';
+    char line[256];
+    while (fgets(line, sizeof(line), fp) != NULL) {
+        if (strlen(response) + strlen(line) + 1 >= (size_t)response_size) {
+            break;
+        }
+        strcat(response, line);
+    }
+    pclose(fp);
+
+    if (strlen(response) == 0) {
+        snprintf(response, response_size, "AI brain task execution returned no output.");
+        return;
+    }
+
+    size_t len = strlen(response);
+    while (len > 0 && (response[len - 1] == '\n' || response[len - 1] == '\r')) {
+        response[len - 1] = '\0';
+        len--;
+    }
 }
 
 static int extract_file_path_for_codegen(const char* command, char* file_path, size_t file_path_size) {

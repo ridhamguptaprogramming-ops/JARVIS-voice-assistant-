@@ -11,6 +11,7 @@ A sophisticated voice-controlled assistant written in C, inspired by the AI from
 - **C Workflow Automation**: Build, rebuild, test, and warning checks via voice
 - **Coding Support**: Symbol search, TODO/FIXME scan, and C module scaffolding
 - **AI-Style Project Bootstrap**: Create a new project, generate starter code, and open VS Code automatically
+- **AI Brain Task Engine**: Orchestrate big tasks like website generation, app scaffolding, legal/court draft prep, and problem-solving reports
 - **Daily Dev Routines**: Git status/pull/push and morning workflow summaries
 - **Modular Architecture**: Separate modules for input, output, and command processing
 - **Generative AI**: Chat plus two built-in AI features (`summary` and `ideas`) (See [AI_UPGRADE.md](AI_UPGRADE.md))
@@ -91,6 +92,10 @@ make run-web-ui
 - **AI Operating Modes**: "Set mode developer", "Set mode automation", "Set mode ceo", "Set mode research", "Set mode security"
 - **AI Code File**: "Generate code file app.py for flask auth API" - Writes generated code directly to file
 - **AI Plan Mode**: "Plan a microservice architecture for ecommerce" - Returns implementation steps
+- **AI Brain Website**: "Create a website called product_hub for my startup" - Generates a website scaffold in `ai_workspace/projects/`
+- **AI Brain App**: "Build an app for inventory tracking" - Generates an app scaffold in `ai_workspace/projects/`
+- **AI Brain Legal/Court**: "Draft a court preparation document for landlord dispute" - Creates a legal draft in `ai_workspace/legal/`
+- **AI Brain Problem Solver**: "Solve this problem: API timeout under load" - Generates a structured solution report in `ai_workspace/solutions/`
 - **AI Summary**: "Summarize [topic/text]" - Generates concise summary points
 - **AI Ideas**: "Give ideas about [topic]" / "Brainstorm [topic]" - Generates practical idea list
 - **Open UI**: "Open Jarvis UI" / "Open AI window" - Opens the desktop UI

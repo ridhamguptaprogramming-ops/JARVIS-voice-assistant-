@@ -1,0 +1,27 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "Segoe UI", sans-serif;
+  background: #f5f8fc;
+  color: #102a43;
+}
+.hero {
+  padding: 56px 20px;
+  background: linear-gradient(140deg, #0e4a7a 0%, #0f6cb0 100%);
+  color: #ffffff;
+  text-align: center;
+}
+button {
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 16px;
+  background: #f06c2f;
+  color: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+}
+main {
+  max-width: 900px;
+  margin: 24px auto;
+  padding: 0 16px;
+}
