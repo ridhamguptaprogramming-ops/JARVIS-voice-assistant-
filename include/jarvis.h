@@ -3,7 +3,7 @@
 
 #include <time.h>
 
-#define JARVIS_VERSION "1.0.0"
+#define JARVIS_VERSION "2.0.0"
 #define JARVIS_NAME "JARVIS"
 
 /**

@@ -69,6 +69,33 @@ char* process_command(const char* command) {
         return NULL;
     }
 
+    /* ── Natural-language keyword normalisation ──────────────────────────
+     * Map common phrasings onto canonical keywords so the rest of the
+     * chain can use simple command_contains() checks as before.
+     * ------------------------------------------------------------------ */
+    /* "what is the time" / "what time is it" → keep "time" (already present) */
+    /* "tell me a joke" → ensure "joke" is present */
+    if (command_contains(lower_cmd, "tell me a joke") ||
+        command_contains(lower_cmd, "say a joke") ||
+        command_contains(lower_cmd, "give me a joke")) {
+        /* rewrite lower_cmd so the joke branch fires */
+        free(lower_cmd);
+        lower_cmd = to_lowercase("joke");
+    }
+    /* "search for X" / "look up X" → already handled; also catch "google X" */
+    if (command_contains(lower_cmd, "google ") &&
+        !command_contains(lower_cmd, "open google") &&
+        !command_contains(lower_cmd, "open")) {
+        /* treat "google quantum computing" as a search */
+        char* rewritten = (char*)malloc(strlen(lower_cmd) + 16);
+        if (rewritten) {
+            snprintf(rewritten, strlen(lower_cmd) + 16, "search for %s",
+                     strstr(lower_cmd, "google ") + 7);
+            free(lower_cmd);
+            lower_cmd = rewritten;
+        }
+    }
+
     // Time-related commands
     if (command_contains(lower_cmd, "time")) {
         time_t now = time(NULL);
@@ -79,22 +106,38 @@ char* process_command(const char* command) {
     else if (command_contains(lower_cmd, "hello") ||
              command_contains(lower_cmd, "hi") ||
              command_contains(lower_cmd, "hey")) {
-        strcpy(response, "Hello sir. I am JARVIS. How may I assist you today?");
+        time_t now = time(NULL);
+        struct tm* t = localtime(&now);
+        int hour = t->tm_hour;
+        const char* greeting = (hour < 12) ? "Good morning" :
+                               (hour < 17) ? "Good afternoon" : "Good evening";
+        snprintf(response, response_size,
+                 "%s. All systems are fully operational. How may I assist you today?",
+                 greeting);
     }
     // Help command
     else if (command_contains(lower_cmd, "help")) {
-        strcpy(response, "I can handle daily C development tasks: build project, run tests, check warnings, "
-                        "find symbol <name>, create c module <name>, create project <name> in python, "
-                        "open project <name> in VS Code, open last project, create folder <name>, "
-                        "open file <path>, create code file <name>, git status, AI summary, AI ideas, "
-                        "AI plan mode, AI task engine (website, app, legal, problem solving), and web search.");
+        strcpy(response,
+               "Of course. I can handle: time, joke, hello, help, system info, weather, "
+               "open google, build project, run tests, check warnings, find symbol <name>, "
+               "create c module <name>, create project <name> in python, "
+               "open project <name>, open last project, create folder <name>, "
+               "open file <path>, create file <name>, generate code file <name> for <task>, "
+               "git status/pull/push, AI summary, AI ideas, AI plan mode, "
+               "AI brain (website/app/legal/problem), search for <topic>, "
+               "repeat last command, what did I say, and exit.");
     }
     // System info command
     else if (command_contains(lower_cmd, "system info") ||
              command_contains(lower_cmd, "system status") ||
              command_contains(lower_cmd, "system information") ||
              strcmp(lower_cmd, "info") == 0) {
-        snprintf(response, response_size, "System information requested. JARVIS version 2.0.0 with voice control is running smoothly on macOS.");
+        char hostname[128] = "unknown";
+        FILE* fp = popen("uname -srm 2>/dev/null", "r");
+        if (fp) { fgets(hostname, sizeof(hostname), fp); hostname[strcspn(hostname, "\n")] = '\0'; pclose(fp); }
+        snprintf(response, response_size,
+                 "JARVIS v%s is running. OS: %s. All subsystems nominal.",
+                 "2.0.0", hostname);
     }
     // AI-like project setup (create project and open in VS Code)
     else if (is_project_creation_request(lower_cmd)) {
@@ -124,6 +167,11 @@ char* process_command(const char* command) {
              (command_contains(lower_cmd, "go to") && !command_contains(lower_cmd, "folder")) ||
              command_contains(lower_cmd, "visit")) {
         execute_webpage_command(lower_cmd, response, response_size);
+    }
+    // Open Google
+    else if (command_contains(lower_cmd, "open google")) {
+        system("open 'https://www.google.com' &");
+        strcpy(response, "Opening Google in your browser.");
     }
     // Open JARVIS AI UI
     else if ((command_contains(lower_cmd, "open") || command_contains(lower_cmd, "launch")) &&
@@ -210,13 +258,30 @@ char* process_command(const char* command) {
     }
     // Joke command
     else if (command_contains(lower_cmd, "joke")) {
-        strcpy(response, "Why do programmers prefer dark mode? "
-                        "Because light attracts bugs!");
+        const char* jokes[] = {
+            "Here's one for you... Why do programmers prefer dark mode? Because light attracts bugs!",
+            "Here's a good one... A SQL query walks into a bar, walks up to two tables and asks: Can I join you?",
+            "Ready? Why do Java developers wear glasses? Because they don't C sharp!",
+            "This one's classic... There are only 10 types of people: those who understand binary and those who don't."
+        };
+        time_t now = time(NULL);
+        strcpy(response, jokes[now % 4]);
     }
     // Weather command
     else if (command_contains(lower_cmd, "weather")) {
-        strcpy(response, "I apologize, but I don't have access to real-time weather data. "
-                        "Please check a weather service for accurate information.");
+        /* Try wttr.in for a one-line weather summary */
+        char weather_buf[256] = "";
+        FILE* wfp = popen("curl -s 'wttr.in/?format=3' 2>/dev/null", "r");
+        if (wfp) {
+            if (fgets(weather_buf, sizeof(weather_buf), wfp) != NULL)
+                weather_buf[strcspn(weather_buf, "\n")] = '\0';
+            pclose(wfp);
+        }
+        if (strlen(weather_buf) > 4)
+            snprintf(response, response_size, "Current weather: %s", weather_buf);
+        else
+            strcpy(response, "I couldn't fetch live weather right now. "
+                             "Please check a weather service for accurate information.");
     }
     // Shutdown command
     else if (command_contains(lower_cmd, "shutdown") || 

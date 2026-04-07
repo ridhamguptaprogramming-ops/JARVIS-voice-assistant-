@@ -97,52 +97,27 @@ static void url_encode_query(const char* input, char* output, size_t output_size
  * Performs a web search using command-line tools
  */
 char* web_search(const char* query) {
-    if (!query || strlen(query) == 0) {
-        return NULL;
-    }
-    
+    if (!query || strlen(query) == 0) return NULL;
+
     char* result = (char*)malloc(1024);
     if (!result) return NULL;
-    
-    // Simulate web search with curl and DuckDuckGo
-    char command[768];
-    char encoded_query[512];
-    FILE* fp;
 
-    url_encode_query(query, encoded_query, sizeof(encoded_query));
-    
-    snprintf(command, sizeof(command), 
-            "curl -s 'https://duckduckgo.com/?q=%s&format=json' 2>/dev/null | head -c 500", 
-            encoded_query);
-    
-    fp = popen(command, "r");
-    if (fp) {
-        char buffer[1024];
-        if (fgets(buffer, sizeof(buffer), fp) != NULL) {
-            // Extract a meaningful response
-            if (strstr(buffer, "error") == NULL && strlen(buffer) > 10) {
-                snprintf(result, 1024, 
-                        "Search results for '%s': I found relevant information online. "
-                        "The query has been processed. Please check online resources for detailed results.", 
-                        query);
-            } else {
-                snprintf(result, 1024, 
-                        "Searching for '%s' online... Internet search completed. "
-                        "For detailed results, please visit a search engine directly.", 
-                        query);
-            }
-            pclose(fp);
-            return result;
-        }
-        pclose(fp);
-    }
-    
-    // Fallback: simulate search results
-    snprintf(result, 1024, 
-            "Web search initiated for: '%s'. Processing search query through online resources. "
-            "Please note: For real-time results, visit DuckDuckGo or Google directly.", 
-            query);
-    
+    char encoded[512];
+    url_encode_query(query, encoded, sizeof(encoded));
+
+    /* Open browser with DuckDuckGo search */
+    char open_cmd[768];
+#ifdef __APPLE__
+    snprintf(open_cmd, sizeof(open_cmd),
+             "open 'https://duckduckgo.com/?q=%s' &", encoded);
+#else
+    snprintf(open_cmd, sizeof(open_cmd),
+             "xdg-open 'https://duckduckgo.com/?q=%s' &", encoded);
+#endif
+    system(open_cmd);
+
+    snprintf(result, 1024,
+             "Searching DuckDuckGo for '%s'. Opening results in your browser.", query);
     return result;
 }
 

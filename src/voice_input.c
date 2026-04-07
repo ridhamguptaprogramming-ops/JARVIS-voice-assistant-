@@ -5,82 +5,90 @@
 #include <unistd.h>
 #include <ctype.h>
 
+#define CLR_RESET  "\033[0m"
+#define CLR_CYAN   "\033[1;36m"
+#define CLR_YELLOW "\033[1;33m"
+#define CLR_GREEN  "\033[1;32m"
+
 static int env_flag_enabled(const char* value) {
-    if (!value) {
-        return 0;
-    }
-    if (strcmp(value, "1") == 0 || strcmp(value, "true") == 0 || strcmp(value, "TRUE") == 0 ||
-        strcmp(value, "yes") == 0 || strcmp(value, "YES") == 0 || strcmp(value, "on") == 0) {
-        return 1;
-    }
-    return 0;
+    if (!value) return 0;
+    return strcmp(value, "1") == 0 || strcmp(value, "true") == 0 ||
+           strcmp(value, "TRUE") == 0 || strcmp(value, "yes") == 0 ||
+           strcmp(value, "YES") == 0 || strcmp(value, "on") == 0;
 }
 
-/**
- * Captures voice input from the microphone using Python speech recognition
- */
-char* capture_voice_input(void) {
-    printf("\n[JARVIS] 🎤 Listening... (speak now)\n");
+/* Try one speech recognition attempt; returns heap string or NULL */
+static char* try_speech(void) {
+    printf(CLR_GREEN "  🎤  Listening...\n" CLR_RESET);
     fflush(stdout);
 
-    // Prioritize fast speech-to-text for smoother voice chat.
     FILE* pipe = popen("python3 src/speech_recognizer.py 2>/dev/null", "r");
+    if (!pipe) return NULL;
 
-    // We'll return a combined string: "SPEAKER|TEXT" where SPEAKER may be UNKNOWN or KEYBOARD
+    char buf[512] = "";
+    if (fgets(buf, sizeof(buf), pipe) != NULL)
+        buf[strcspn(buf, "\n")] = '\0';
+    pclose(pipe);
+
+    if (strlen(buf) == 0) return NULL;
+
+    char* result = (char*)malloc(512);
+    if (!result) return NULL;
+    strncpy(result, buf, 511);
+    result[511] = '\0';
+    return result;
+}
+
+char* capture_voice_input(void) {
     char* combined = (char*)malloc(768);
-    if (!combined) {
-        if (pipe) pclose(pipe);
-        return NULL;
-    }
+    if (!combined) return NULL;
     combined[0] = '\0';
 
-    if (pipe) {
-        char text_buf[512] = "";
-        if (fgets(text_buf, sizeof(text_buf), pipe) != NULL) {
-            text_buf[strcspn(text_buf, "\n")] = 0;
-        }
-        pclose(pipe);
+    /* ── Attempt 1 ── */
+    char* text = try_speech();
 
-        if (strlen(text_buf) > 0) {
-            char speaker[128] = "UNKNOWN";
-
-            // Optional: enable speaker verification only when requested.
-            const char* verify_speaker = getenv("JARVIS_VERIFY_SPEAKER");
-            if (env_flag_enabled(verify_speaker)) {
-                FILE* spipe = popen("python3 src/speaker_recognizer.py 2>/dev/null", "r");
-                if (spipe) {
-                    if (fgets(speaker, sizeof(speaker), spipe) != NULL) {
-                        speaker[strcspn(speaker, "\n")] = 0;
-                    }
-                    pclose(spipe);
-                }
-            }
-
-            if (speaker[0] == '\0') {
-                strcpy(speaker, "UNKNOWN");
-            }
-
-            snprintf(combined, 768, "%s|%s", speaker, text_buf);
-            if (strcmp(speaker, "UNKNOWN") != 0) {
-                printf("[JARVIS] (%s) You said: \"%s\"\n", speaker, text_buf);
-            } else {
-                printf("[JARVIS] You said: \"%s\"\n", text_buf);
-                if (env_flag_enabled(verify_speaker)) {
-                    printf("[JARVIS] Speaker not verified (unknown)\n");
-                }
-            }
-            return combined;
-        }
+    /* ── Retry once on timeout/empty ── */
+    if (!text) {
+        printf(CLR_YELLOW "  [JARVIS] No speech detected. Retrying...\n" CLR_RESET);
+        text = try_speech();
     }
 
-    // Fallback to keyboard input if Python script fails
-    printf("[JARVIS] Microphone not available or empty input. Using keyboard input instead.\n");
-    printf("[JARVIS] Type your command: ");
+    if (text) {
+        printf(CLR_CYAN "  🧠  Processing...\n" CLR_RESET);
+
+        char speaker[128] = "UNKNOWN";
+        if (env_flag_enabled(getenv("JARVIS_VERIFY_SPEAKER"))) {
+            FILE* spipe = popen("python3 src/speaker_recognizer.py 2>/dev/null", "r");
+            if (spipe) {
+                if (fgets(speaker, sizeof(speaker), spipe) != NULL)
+                    speaker[strcspn(speaker, "\n")] = '\0';
+                pclose(spipe);
+            }
+        }
+        if (speaker[0] == '\0') strcpy(speaker, "UNKNOWN");
+
+        snprintf(combined, 768, "%s|%s", speaker, text);
+
+        if (strcmp(speaker, "UNKNOWN") != 0)
+            printf(CLR_GREEN "  💬  (%s) You said: \"%s\"\n" CLR_RESET, speaker, text);
+        else
+            printf(CLR_GREEN "  💬  You said: \"%s\"\n" CLR_RESET, text);
+
+        free(text);
+        return combined;
+    }
+
+    /* ── Keyboard fallback ── */
+    printf(CLR_YELLOW
+           "  [JARVIS] Microphone unavailable or no speech detected.\n"
+           "           Switching to keyboard input.\n"
+           CLR_RESET);
+    printf(CLR_CYAN "  ❯ Type your command: " CLR_RESET);
     fflush(stdout);
 
     char kb_buf[512] = "";
     if (fgets(kb_buf, sizeof(kb_buf), stdin) != NULL) {
-        kb_buf[strcspn(kb_buf, "\n")] = 0;
+        kb_buf[strcspn(kb_buf, "\n")] = '\0';
         if (strlen(kb_buf) > 0) {
             snprintf(combined, 768, "KEYBOARD|%s", kb_buf);
             return combined;
@@ -91,36 +99,16 @@ char* capture_voice_input(void) {
     return NULL;
 }
 
-/**
- * Records audio to a temporary file using system tools
- */
 int record_audio(const char* filename) {
-    (void)filename;  // Unused
-    
-    #ifdef __APPLE__
-        // macOS: Note - true audio recording requires ffmpeg or audio framework
-        // For now, we return success as input is handled via stdin
-        printf("[JARVIS] Voice input ready (via keyboard)\n");
-        return 1;
-    #else
-        // Linux: Similar approach
-        printf("[JARVIS] Voice input ready (via keyboard)\n");
-        return 1;
-    #endif
+    (void)filename;
+    printf(CLR_CYAN "  [JARVIS] Voice input ready.\n" CLR_RESET);
+    return 1;
 }
 
-
-/**
- * Converts speech to text using system tools
- */
 char* speech_to_text(const char* audio_file) {
-    (void)audio_file;  // Unused
-    
-    char* recognized_text = (char*)malloc(256);
-    if (!recognized_text) return NULL;
-    
-    // Speech-to-text would normally use APIs or frameworks
-    // For now, text input is processed directly
-    strcpy(recognized_text, "");
-    return recognized_text;
+    (void)audio_file;
+    char* s = (char*)malloc(256);
+    if (!s) return NULL;
+    strcpy(s, "");
+    return s;
 }
