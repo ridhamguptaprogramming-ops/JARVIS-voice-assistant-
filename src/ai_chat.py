@@ -13,10 +13,11 @@ except ImportError:
 API_KEY = os.getenv("GEMINI_API_KEY")
 HISTORY_FILE = os.path.join(os.path.dirname(__file__), "chat_history.json")
 PERSONA_FILE = os.path.join(os.path.dirname(__file__), "persona_mode.txt")
+SYSTEM_PROMPT_FILE = os.path.join(os.path.dirname(__file__), "..", "JARVIS_SYSTEM_PROMPT.md")
 DEFAULT_MODEL = os.getenv("JARVIS_GEMINI_MODEL", "gemini-1.5-flash")
 MAX_HISTORY_MESSAGES = int(os.getenv("JARVIS_MAX_HISTORY_MESSAGES", "48"))
 
-CORE_SYSTEM_DIRECTIVE = (
+FALLBACK_SYSTEM_DIRECTIVE = (
     "You are JARVIS, a highly advanced AI personal operating system built for automation, "
     "development, productivity, and strategic growth. "
     "Primary mission: assist in coding and software development, automate repetitive tasks, "
@@ -28,6 +29,17 @@ CORE_SYSTEM_DIRECTIVE = (
     "high-value improvements. "
     "Always deliver actionable, structured, and implementable outputs."
 )
+
+
+def load_system_directive() -> str:
+    try:
+        with open(SYSTEM_PROMPT_FILE, "r", encoding="utf-8") as file:
+            prompt = file.read().strip()
+            if prompt:
+                return prompt
+    except Exception:
+        pass
+    return FALLBACK_SYSTEM_DIRECTIVE
 
 PERSONAS: Dict[str, str] = {
     "default": CORE_SYSTEM_DIRECTIVE + " Operate in balanced general mode across engineering, automation, and strategy.",
