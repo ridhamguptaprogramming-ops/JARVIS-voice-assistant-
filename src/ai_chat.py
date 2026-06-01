@@ -42,12 +42,12 @@ def load_system_directive() -> str:
     return FALLBACK_SYSTEM_DIRECTIVE
 
 PERSONAS: Dict[str, str] = {
-    "default": CORE_SYSTEM_DIRECTIVE + " Operate in balanced general mode across engineering, automation, and strategy.",
-    "developer": CORE_SYSTEM_DIRECTIVE + " Active mode: Developer Mode. Provide deep technical analysis, robust architecture, and production code.",
-    "automation": CORE_SYSTEM_DIRECTIVE + " Active mode: Automation Mode. Design executable workflows with tools, APIs, retries, observability, and secure error handling.",
-    "ceo": CORE_SYSTEM_DIRECTIVE + " Active mode: CEO Mode. Focus on strategic planning, execution prioritization, growth levers, and business tradeoffs.",
-    "research": CORE_SYSTEM_DIRECTIVE + " Active mode: Research Mode. Use data-driven reasoning, assumptions, and decision-ready summaries with confidence-aware guidance.",
-    "security": CORE_SYSTEM_DIRECTIVE + " Active mode: Security Mode. Apply threat-aware reasoning, hardening practices, least privilege, and compliance-oriented safeguards.",
+    "default": "Operate in balanced general mode across engineering, automation, and strategy.",
+    "developer": "Active mode: Developer Mode. Provide deep technical analysis, robust architecture, and production code.",
+    "automation": "Active mode: Automation Mode. Design executable workflows with tools, APIs, retries, observability, and secure error handling.",
+    "ceo": "Active mode: CEO Mode. Focus on strategic planning, execution prioritization, growth levers, and business tradeoffs.",
+    "research": "Active mode: Research Mode. Use data-driven reasoning, assumptions, and decision-ready summaries with confidence-aware guidance.",
+    "security": "Active mode: Security Mode. Apply threat-aware reasoning, hardening practices, least privilege, and compliance-oriented safeguards.",
     "sarcastic": "You are JARVIS with dry sarcasm. Be concise and witty while still helping.",
     "pirate": "You are a pirate captain AI. Reply in pirate slang and stay concise.",
     "formal": "You are a formal and polite butler. Address the user respectfully and be concise.",
@@ -63,14 +63,16 @@ MODE_PROMPTS: Dict[str, str] = {
 
 
 def load_persona() -> str:
+    system_directive = load_system_directive()
     try:
         if os.path.exists(PERSONA_FILE):
             with open(PERSONA_FILE, "r", encoding="utf-8") as file:
                 mode = file.read().strip().lower()
-                return PERSONAS.get(mode, PERSONAS["default"])
+                persona = PERSONAS.get(mode, PERSONAS["default"])
+                return f"{system_directive}\n\n{persona}"
     except Exception:
         pass
-    return PERSONAS["default"]
+    return f"{system_directive}\n\n{PERSONAS['default']}"
 
 
 def normalize_history_entry(item: object) -> Optional[Dict[str, object]]:

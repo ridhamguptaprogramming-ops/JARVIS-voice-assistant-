@@ -119,7 +119,7 @@ char* process_command(const char* command) {
     else if (command_contains(lower_cmd, "help")) {
         strcpy(response,
                "Of course. I can handle: time, joke, hello, help, system info, weather, "
-               "open google, build project, run tests, check warnings, find symbol <name>, "
+               "open google, daily C development tasks, build project, run tests, check warnings, find symbol <name>, "
                "create c module <name>, create project <name> in python, "
                "open project <name>, open last project, create folder <name>, "
                "open file <path>, create file <name>, generate code file <name> for <task>, "
